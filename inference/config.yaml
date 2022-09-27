@@ -1,0 +1,19 @@
+# the codecommit repo where the pipeline should pull its source from
+repoName: "mlops-to-greengrass"
+# the branch to use
+branchName: "main"
+# prefix where pipeline assets will be stored
+pipelineAssetsPrefix: "pipeline/inference"
+
+gg:
+  thingIotPolicyName: 'BlogPostGGV2IoTThingPolicy'
+  tokenExchangeRoleAlias: 'BlogPostGGCoreTokenExchangeRoleAlias'
+  allowAssumeTokenExchangeRolePolicyName: 'GreengrassTESCertificatePolicyBlogPostGGCoreTokenExchangeRoleAlias'
+  deviceFleetName: "devicefleet"
+  iotThingName: 'EdgeThing-EdgeDeployment-GreengrassStack'
+
+edgeDeploymentOrchestration:
+  s3OutputUriCompiledModel: "{{ pipelineAssetsPrefix }}/pipeline/training/output/compiled-model"
+  s3OutputUriPackagedModel: "{{ pipelineAssetsPrefix }}/pipeline/training/output/packaged-model"
+  ggModelComponentName: 'com.qualityinspection.model'
+  ggInferenceComponentName: 'com.qualityinspection'

@@ -1,0 +1,21 @@
+*.js
+!jest.config.js
+*.d.ts
+node_modules
+build
+
+.pytest_cache
+# CDK asset staging directory
+.cdk.staging
+cdk.out
+.idea/
+.gp2
+.python-version
+datasets/
+.DS_Store
+.ipynb_checkpoints
+.vscode
+sample_gg_components/
+
+# Python
+__pycache__

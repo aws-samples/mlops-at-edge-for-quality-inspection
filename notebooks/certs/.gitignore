@@ -1,0 +1,7 @@
+AmazonRootCA1.pem
+create-keys-and-certificate.json
+create-thing.json
+describe-endpoint.json
+notebook-test-certificate.pem.crt
+notebook-test-private.pem.key
+notebook-test-public.pem.key

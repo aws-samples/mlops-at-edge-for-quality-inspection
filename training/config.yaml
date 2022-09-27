@@ -1,0 +1,8 @@
+# the codecommit repo where the pipeline should pull its source from
+repoName: "mlops-to-greengrass"
+# the branch to use
+branchName: "main"
+# prefix where pipeline assets will be stored
+pipelineAssetsPrefix: "pipeline/training"
+# The instance type which should be used for training
+trainingInstanceType: "ml.g4dn.2xlarge"

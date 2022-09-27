@@ -1,0 +1,280 @@
+import * as lambda_python from '@aws-cdk/aws-lambda-python-alpha';
+import { aws_lambda as lambda, aws_logs as logs, aws_iam as iam, aws_s3 as s3, aws_s3_assets as s3_assets, aws_codecommit as codecommit, aws_s3_deployment as s3deploy, aws_sagemaker as sagemaker, CfnOutput, CustomResource, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { CompositePrincipal, ManagedPolicy, PolicyDocument, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
+import { Bucket } from 'aws-cdk-lib/aws-s3';
+import { Construct } from 'constructs';
+import * as path from "path";
+import { AppConfig } from '../../bin/app';
+export class LabelingInitStack extends Stack {
+
+    readonly dataBucket: s3.Bucket;
+    readonly dataBucketOutput: CfnOutput;
+    readonly modelPackageGroup: sagemaker.CfnModelPackageGroup;
+    readonly featureGroup: sagemaker.CfnFeatureGroup;
+
+    constructor(scope: Construct, id: string, props: AppConfig) {
+        super(scope, id, props);
+
+        if (props.repoType == "CODECOMMIT"){
+            this.seedCodeCommitRepo(props.repoName, props.branchName)
+        }
+        this.dataBucket = this.createAssetsBucket()
+        const seedAssetsRole = this.createSeedAssetsRole()
+        const bucketDeployment: s3deploy.BucketDeployment = this.seedInitialAssetsToBucket(this.dataBucket)
+        this.featureGroup = this.seed_labels_to_feature_store(seedAssetsRole, this.dataBucket, bucketDeployment, props)
+        this.modelPackageGroup = this.seed_initial_model(seedAssetsRole, this.dataBucket, bucketDeployment, props)
+
+        new CfnOutput(this, 'modelPackageGroup', {
+            value: this.modelPackageGroup.modelPackageGroupName,
+            description: 'The name of the modelpackage group where models are stored in sagemaker model registry',
+            exportName: 'mlopsModelPackageGroup'
+        })
+
+
+        new CfnOutput(this, 'mlopsfeatureGroup', {
+            value: this.featureGroup.featureGroupName,
+            description: 'The name of the feature group where features are stored in feature store',
+            exportName: 'mlopsfeatureGroup'
+        })
+
+        new CfnOutput(this, 'mlopsDataBucket', {
+            value: this.dataBucket.bucketName,
+            description: 'The Name of the data bucket',
+            exportName: 'mlopsDataBucket'
+        })
+    }
+
+    seedCodeCommitRepo(repoName: string, branchName: string) {
+
+        //only uploading minimal code from this repo for the stack to work, excluding seed assets and doc
+        const directoryAsset = new s3_assets.Asset(this, "SeedCodeAsset", {
+            path: path.join(__dirname, "../../.."),
+            exclude: ['*.js', 'node_modules', 'doc', '*.d.ts', 'cdk.out', 'model.tar.gz', '.git', '.python-version']
+
+        });
+        const repo = new codecommit.Repository(this, 'Repository', {
+            repositoryName: repoName,
+            code: codecommit.Code.fromAsset(directoryAsset, branchName)
+        })
+    }
+    createAssetsBucket() {
+        // create default bucker where all assets are stored
+        const dataBucket = new s3.Bucket(this, 'LabelingDataBucket', {
+            bucketName: "mlops-" + Stack.of(this).account,
+            publicReadAccess: false,
+            blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+            cors: [{
+                allowedHeaders: [],
+                allowedMethods: [s3.HttpMethods.GET],
+                allowedOrigins: ['*'],
+            }],
+            removalPolicy: RemovalPolicy.DESTROY,
+            autoDeleteObjects: true,
+            encryption: s3.BucketEncryption.S3_MANAGED,
+            serverAccessLogsPrefix: 'access-logs'
+        });
+
+        // Bucket policy to deny access to HTTP requests
+        const myBucketPolicy = new iam.PolicyStatement({
+            effect: iam.Effect.DENY,
+            actions: ["s3:*"],
+            resources: [dataBucket.bucketArn, dataBucket.arnForObjects("*")],
+            principals: [new iam.AnyPrincipal()],
+            conditions: { "Bool": { "aws:SecureTransport": false } }
+        });
+
+        // Allow Cfn exec and deploy permissions
+        const cfnBucketPolicy = new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: ["s3:*"],
+            resources: [dataBucket.bucketArn, dataBucket.arnForObjects("*")],
+            principals: [new ServicePrincipal('cloudformation.amazonaws.com')]
+        })
+
+        // Allow cdk roles to read/write permissions
+        const cdkBucketPolicy = new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: ["s3:*"],
+            resources: [dataBucket.bucketArn, dataBucket.arnForObjects("*")],
+            principals: [new iam.ArnPrincipal(
+                `arn:aws:iam::${Stack.of(this).account}:role/cdk-hnb659fds-deploy-role-${Stack.of(this).account}-${Stack.of(this).region}`
+              )]
+        })
+
+        
+
+        dataBucket.addToResourcePolicy(myBucketPolicy);
+        dataBucket.addToResourcePolicy(cfnBucketPolicy);
+        dataBucket.addToResourcePolicy(cdkBucketPolicy);
+
+        return dataBucket
+    }
+
+    seedInitialAssetsToBucket(dataBucket: s3.Bucket) {
+        // deploy assets required by the pipeline, like the dataset and templates for labeling jobs
+        return new s3deploy.BucketDeployment(this, 'AssetInit', {
+            memoryLimit: 1024,
+            sources: [s3deploy.Source.asset(path.join('./lib/assets'))],
+            destinationBucket: dataBucket,
+            destinationKeyPrefix: 'pipeline/assets',
+
+        });
+    }
+
+    createSeedAssetsRole() {
+
+        const bucketAccess = new PolicyDocument({
+            statements: [
+                new PolicyStatement({
+                    resources: [`arn:aws:s3:::${this.dataBucket.bucketName}/*`, `arn:aws:s3:::${this.dataBucket.bucketName}`],
+                    actions: ['s3:*']
+                }),
+                new PolicyStatement({
+                    actions: ['sagemaker:PutRecord', 'sagemaker:CreateModelPackage'],
+                    resources: ['*']
+                }),
+                new PolicyStatement({
+                    actions: ['ecr:*'],
+                    resources: ['*']
+                })
+            ]
+        });
+
+        return new Role(this, 'FeatureGroupRole', {
+            assumedBy: new CompositePrincipal(
+                new ServicePrincipal('sagemaker.amazonaws.com'),
+                new ServicePrincipal('lambda.amazonaws.com')
+            ),
+            inlinePolicies: {
+                bucketAccess: bucketAccess
+            },
+            managedPolicies: [
+                ManagedPolicy.fromAwsManagedPolicyName('AmazonSageMakerFeatureStoreAccess'),
+                ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')
+            ]
+        })
+    }
+
+    seed_labels_to_feature_store(role: Role, dataBucket: Bucket, bucketDeployment: s3deploy.BucketDeployment, props: AppConfig) {
+
+        const offlineStoreConfig: any = {
+            "S3StorageConfig": {
+                "S3Uri": `s3://${dataBucket.bucketName}/feature-store/`
+            }
+        };
+
+
+        const featureGroup = new sagemaker.CfnFeatureGroup(this, 'MyCfnFeatureGroup', {
+            eventTimeFeatureName: 'event_time',
+            featureDefinitions: [{
+                featureName: 'source_ref',
+                featureType: 'String',
+            },
+            {
+                featureName: 'image_width',
+                featureType: 'Integral',
+            },
+            {
+                featureName: 'image_height',
+                featureType: 'Integral',
+            },
+            {
+                featureName: 'image_depth',
+                featureType: 'Integral',
+            },
+            {
+                featureName: 'annotations',
+                featureType: 'String',
+            },
+            {
+                featureName: 'event_time',
+                featureType: 'Fractional',
+            },
+            {
+                featureName: 'labeling_job',
+                featureType: 'String',
+            },
+            {
+                featureName: 'status',
+                featureType: 'String',
+            }
+            ],
+            featureGroupName: 'tag-quality-inspection',
+            recordIdentifierFeatureName: 'source_ref',
+            description: 'Stores bounding box dataset for quality inspection',
+            offlineStoreConfig: offlineStoreConfig,
+            roleArn: role.roleArn,
+
+        });
+
+
+
+        const seedLabelsFunction = new DockerImageFunction(this, 'SeedLabelsToFeatureStoreFunction', {
+            code: DockerImageCode.fromImageAsset(path.join(__dirname, '../lambda/seed_labels_to_feature_store')),
+            functionName: "SeedLabelsToFeatureStoreFunction",
+            memorySize: 1024,
+            role: role,
+            timeout: Duration.seconds(300),
+            logRetention: logs.RetentionDays.ONE_WEEK,
+
+
+        });
+
+        const customResource = new CustomResource(this, 'SeedLabelsCustomResource', {
+            serviceToken: seedLabelsFunction.functionArn,
+            properties: {
+                feature_group_name: props.featureGroupName,
+                labels_uri: `s3://${dataBucket.bucketName}/pipeline/assets/labels/labels.csv`
+            }
+        });
+
+        featureGroup.node.addDependency(bucketDeployment);
+        customResource.node.addDependency(featureGroup);
+        return featureGroup
+    }
+
+
+
+
+
+
+
+    seed_initial_model(role: Role, dataBucket: Bucket, bucketDeployment: s3deploy.BucketDeployment, props: AppConfig) {
+
+        const cfnModelPackageGroup = new sagemaker.CfnModelPackageGroup(this, 'MyCfnModelPackageGroup', {
+            modelPackageGroupName: props.modelPackageGroupName,
+            modelPackageGroupDescription: props.modelPackageGroupDescription,
+        });
+
+        cfnModelPackageGroup.applyRemovalPolicy(RemovalPolicy.DESTROY)
+
+        const seed_initial_model_function = new lambda_python.PythonFunction(this, 'SeedInitialModelLambda', {
+            entry: 'lib/lambda/seed_initial_model',
+            runtime: lambda.Runtime.PYTHON_3_9,
+            timeout: Duration.seconds(300),
+            logRetention: logs.RetentionDays.ONE_WEEK,
+            role: role,
+            memorySize: 1024,
+            environment: {
+
+            }
+        });
+
+        const cr = new CustomResource(this, 'SeedModelCustomResource', {
+            serviceToken: seed_initial_model_function.functionArn,
+            properties: {
+                model_uri: `s3://${dataBucket.bucketName}/pipeline/assets/model/model.tar.gz`,
+                model_package_group_name: props.modelPackageGroupName
+            }
+        });
+        cr.node.addDependency(bucketDeployment);
+        return cfnModelPackageGroup
+    }
+
+
+
+    deployFeatureGroup(bucket: Bucket, role: Role) {
+
+    }
+}

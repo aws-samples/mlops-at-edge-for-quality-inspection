@@ -1,0 +1,9 @@
+# featureGroupName in SageMaker Feature Store, where features should be saved
+featureGroupName: tag-quality-inspection
+# modelPackageGroupName in model Registry
+modelPackageGroupName: TagQualityInspectionPackageGroup
+# modelPackageGroupName in model Registry
+modelPackageGroupDescription: Contains models for quality inspection of metal tags
+
+
+

@@ -1,0 +1,32 @@
+{
+  "targetArn": "${TARGET_ARN}",
+  "deploymentName": "QualityInspectionDeployment",
+  "components": {
+    "com.qualityinspection": {
+      "componentVersion": "${COMPONENT_VERSION}",
+      "configurationUpdate": {
+        "merge": "{\"InferenceInterval\":\"3\"}"
+      }
+    },
+    "aws.greengrass.Cli": {
+      "componentVersion": "2.5.1"
+    },
+    "aws.greengrass.SageMakerEdgeManager": {
+      "componentVersion": "1.1.0"
+    },
+    "com.qualityinspection.model": {
+      "componentVersion": "${MODEL_VERSION}"
+    }
+  },
+  "deploymentPolicies": {
+    "failureHandlingPolicy": "ROLLBACK",
+    "componentUpdatePolicy": {
+      "timeoutInSeconds": 60,
+      "action": "NOTIFY_COMPONENTS"
+    },
+    "configurationValidationPolicy": {
+      "timeoutInSeconds": 60
+    }
+  },
+  "iotJobConfiguration": {}
+}

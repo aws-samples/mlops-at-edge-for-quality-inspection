@@ -1,0 +1,66 @@
+{
+    "RecipeFormatVersion": "2020-01-25",
+    "ComponentName": "com.qualityinspection",
+    "ComponentVersion": "COMPONENT_VERSION",
+    "ComponentPublisher": "AWS",
+    "ComponentConfiguration": {
+        "DefaultConfiguration": {
+            "accessControl": {
+                "aws.greengrass.ipc.mqttproxy": {
+                    "com.greengrass.SageMakerEdgeManager.ObjectDetection:mqttproxy:1": {
+                        "policyDescription": "Allows access to publish via topic gg/sageMakerEdgeManager/object-detection.",
+                        "operations": [
+                            "aws.greengrass#PublishToIoTCore"
+                        ],
+                        "resources": [
+                            "gg/sageMakerEdgeManager/object-detection"
+                        ]
+                    }
+                }
+            },
+            "InferenceInterval": "5",
+            "PublishResultsOnTopic": "gg/sageMakerEdgeManager/object-detection"
+        }
+    },
+    "ComponentDependencies": {
+        "com.qualityinspection.model": {
+            "VersionRequirement": ">=0.0.1",
+            "DependencyType": "HARD"
+        },
+        "aws.greengrass.SageMakerEdgeManager": {
+            "VersionRequirement": "^1.0.0"
+        },
+        "aws.greengrass.StreamManager": {
+            "VersionRequirement": "^2.0.0"
+        }
+    },
+    "Manifests": [
+        {
+            "Platform": {
+                "os": "linux",
+                "architecture": "/amd64|x86/"
+            },
+            "Lifecycle": {
+                "setEnv": {
+                    "DEFAULT_SMEM_OD_IMAGE_DIR": "{artifacts:decompressedPath}/qualityinspection/sample_images/",
+                    "SMEM_OD_MODEL_DIR": "{com.qualityinspection.model:configuration:/ModelPath}",
+                    "INFERENCE_IMAGE_UPLOAD_BUCKET": "BUCKET_NAME",
+                    "UPLOAD_DATA_DIR": "/greengrass/v2/work/com.qualityinspection/"
+                },
+                "run": {
+                    "script": "bash {artifacts:decompressedPath}/qualityinspection/installer.sh\npython3 {artifacts:decompressedPath}/qualityinspection/inference.py"
+                }
+            },
+            "Artifacts": [
+                {
+                    "Uri": "s3://BUCKET_NAME/edge/artifacts/qualityinspection/COMPONENT_VERSION/qualityinspection.zip",
+                    "Unarchive": "ZIP",
+                    "Permission": {
+                        "Read": "OWNER",
+                        "Execute": "NONE"
+                    }
+                }
+            ]
+        }
+    ]
+}
