@@ -29,6 +29,7 @@ Before installing this sample, make sure you have following installed:
 1. Update the GitHub related configuration in the `./repo_config.yaml` file
     * Set the value of *repoType* to `GITHUB`
     * Update the value of *githubConnectionArn*, *githubRepoOwner* and *repoName*
+1. Commit and push the changed file to your fork
 
 #### Option 2: Create a CodeCommit Repo in your AWS account
 
@@ -38,7 +39,7 @@ To choose this option, set the value of *repoType* to `CODECOMMIT` in the `./rep
 
 ## Boostrap your account
 This repo uses the AWS Cloud Development Kit (AWS CDK) v2. AWS CDK requires you to bootstrap your AWS account before deploying with CDK (see [Bootstrapping](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping.html) in the AWS CDK documentation).
-Either follow the steps described in the manual our run `make bootstrap` to boostrap your AWS account.
+Either follow the steps described in the manual our run `make bootstrap-cdk` to boostrap your AWS account.
 
 ## Quick start
 

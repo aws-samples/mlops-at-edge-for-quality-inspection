@@ -1,6 +1,6 @@
 .PHONY: deploy destroy check-destroy
 
-boostrap-cdk:
+boosttrap-cdk:
 	@cd init && ${MAKE} bootstrap
 
 deploy: deploy-init deploy-labeling deploy-training deploy-inference
