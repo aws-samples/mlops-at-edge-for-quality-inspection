@@ -15,14 +15,14 @@ aws iot detach-policy --policy-name GreengrassTESCertificatePolicyBlogPostGGCore
 aws iot delete-certificate --certificate-id "$CERTIFICATE_ID"
 aws iot delete-role-alias --role-alias SageMakerEdge-devicefleet-MLOps-Inference-Statemachine-Pipeline-Stack
 aws greengrassv2 delete-core-device --core-device-thing-name ${GG_CORE_DEVICE}
-GG_COMPONENTS=($(aws greengrassv2 list-components --output text | awk -F"\t" '$1=="COMPONENTS" {print $2}' | awk '/com.qualityinspection/'))
+GG_COMPONENTS=($(aws greengrassv2 list-components --output text --query "components[?starts_with(componentName, 'com.qualityinspection')].[arn]"))
 for component in ${GG_COMPONENTS}
 do
-    COMPONENT_VERSIONS=($(aws greengrassv2 list-component-versions --arn $component --output text | awk -F"\t" '{print $4}'))
-    for version in ${COMPONENT_VERSIONS}
+    COMPONENT_VERSIONS=$(aws greengrassv2 list-component-versions --arn "$component" --output text --query 'componentVersions[].[arn]')
+    for version_arn in ${COMPONENT_VERSIONS}
     do
-        echo Deleting $component:versions:$version
-        aws greengrassv2 delete-component --arn $component:versions:$version
+        echo "Deleting $version_arn"
+        aws greengrassv2 delete-component --arn "$version_arn"
     done
 done
 cd $SCRIPT_DIR/.. && cdk destroy --all --force
