@@ -1,7 +1,7 @@
 import * as lambda_python from '@aws-cdk/aws-lambda-python-alpha';
 import { aws_lambda as lambda, aws_logs as logs, aws_iam as iam, aws_s3 as s3, aws_s3_assets as s3_assets, aws_codecommit as codecommit, aws_s3_deployment as s3deploy, aws_sagemaker as sagemaker, CfnOutput, CustomResource, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { CompositePrincipal, ManagedPolicy, PolicyDocument, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
-import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
+import { Architecture, DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 import * as path from "path";
@@ -212,6 +212,7 @@ export class LabelingInitStack extends Stack {
 
         const seedLabelsFunction = new DockerImageFunction(this, 'SeedLabelsToFeatureStoreFunction', {
             code: DockerImageCode.fromImageAsset(path.join(__dirname, '../lambda/seed_labels_to_feature_store')),
+            architecture: Architecture.X86_64,
             functionName: "SeedLabelsToFeatureStoreFunction",
             memorySize: 1024,
             role: role,

@@ -1,4 +1,4 @@
-FROM public.ecr.aws/lts/ubuntu:18.04_stable
+FROM --platform=linux/amd64  public.ecr.aws/lts/ubuntu:18.04_stable
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \

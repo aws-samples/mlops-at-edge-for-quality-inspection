@@ -1,6 +1,6 @@
 import * as lambda_python from '@aws-cdk/aws-lambda-python-alpha';
 import { aws_iam as iam, aws_lambda as lambda, CfnOutput, Duration, Stack } from 'aws-cdk-lib';
-import { DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
+import { Architecture, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
 import { Construct } from 'constructs';
 import * as path from "path";
 import { StateMachinePipelineProps } from '../stacks/statemachine-pipeline';
@@ -64,6 +64,7 @@ export class PipelineAssets extends Construct {
   updateFeatureStoreLambda(props: StateMachinePipelineProps, role: iam.Role) {
     return new lambda.DockerImageFunction(this, 'UpdateFeatureStoreLambda', {
       code: lambda.DockerImageCode.fromImageAsset(path.join(__dirname, '../lambda/update_feature_store')),
+      architecture: Architecture.X86_64,
       functionName: "UpdateLabelsInFeatureStoreFunction",
       memorySize: 1024,
       timeout: Duration.seconds(600),
@@ -82,6 +83,7 @@ export class PipelineAssets extends Construct {
   createMissingLabelsLambda(props: StateMachinePipelineProps, role: iam.Role) {
     const missingLabelsLambda = new lambda.DockerImageFunction(this, 'CheckMissingLabelsFunction', {
       code: lambda.DockerImageCode.fromImageAsset(path.join(__dirname, '../lambda/check_missing_labels')),
+      architecture: Architecture.X86_64,
       functionName: "CheckMissingLabelsFunction",
       memorySize: 1024,
       role: role,
@@ -102,6 +104,7 @@ export class PipelineAssets extends Construct {
     return new lambda_python.PythonFunction(this, 'RunLabelingJobLambda', {
       entry: 'lib/lambda/run_labeling_job', // required
       runtime: lambda.Runtime.PYTHON_3_8,
+      architecture: Architecture.X86_64,
       timeout: Duration.seconds(300),
       role: role,
       environment: {
@@ -121,6 +124,7 @@ export class PipelineAssets extends Construct {
     {
       return new lambda_python.PythonFunction(this, 'RunVerificationJobLambda', {
         entry: 'lib/lambda/run_verification_job', // required
+        architecture: Architecture.X86_64,
         runtime: lambda.Runtime.PYTHON_3_8,
         timeout: Duration.seconds(300),
         role: role,
