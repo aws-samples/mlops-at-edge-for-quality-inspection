@@ -85,7 +85,7 @@ def  get_step_config(event)-> LabelingjobConfig:
     # setting workteam arn as public as default
     workteam_arn = f"arn:aws:sagemaker:{region}:394669845002:workteam/public-crowd/default"
 
-    if use_private_workteam.lower() == 'True'.lower():
+    if use_private_workteam.lower() == 'true':
         if 'PRIVATE_WORKTEAM_ARN' in os.environ:
             workteam_arn = os.environ.get('PRIVATE_WORKTEAM_ARN')
         else:
@@ -147,7 +147,7 @@ def create_labeling_job_config(config: LabelingjobConfig, manifest_uri):
             "UiTemplateS3Uri": config.instructions_template_s3_uri
         }
     }
-    if config.use_private_workteam.lower() != 'True'.lower():
+    if config.use_private_workteam.lower() != 'true':
         logger.info("Setting task price")
         human_task_config["PublicWorkforceTaskPrice"] = {
             "AmountInUsd": {
