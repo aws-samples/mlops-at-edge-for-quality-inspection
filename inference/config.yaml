@@ -9,11 +9,8 @@ gg:
   thingIotPolicyName: 'BlogPostGGV2IoTThingPolicy'
   tokenExchangeRoleAlias: 'BlogPostGGCoreTokenExchangeRoleAlias'
   allowAssumeTokenExchangeRolePolicyName: 'GreengrassTESCertificatePolicyBlogPostGGCoreTokenExchangeRoleAlias'
-  deviceFleetName: "devicefleet"
   iotThingName: 'EdgeThing-EdgeDeployment-GreengrassStack'
 
 edgeDeploymentOrchestration:
-  s3OutputUriCompiledModel: "{{ pipelineAssetsPrefix }}/pipeline/training/output/compiled-model"
-  s3OutputUriPackagedModel: "{{ pipelineAssetsPrefix }}/pipeline/training/output/packaged-model"
   ggModelComponentName: 'com.qualityinspection.model'
   ggInferenceComponentName: 'com.qualityinspection'

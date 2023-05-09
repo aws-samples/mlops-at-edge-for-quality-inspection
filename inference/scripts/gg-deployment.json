@@ -11,9 +11,6 @@
     "aws.greengrass.Cli": {
       "componentVersion": "2.5.1"
     },
-    "aws.greengrass.SageMakerEdgeManager": {
-      "componentVersion": "1.1.0"
-    },
     "com.qualityinspection.model": {
       "componentVersion": "${MODEL_VERSION}"
     }

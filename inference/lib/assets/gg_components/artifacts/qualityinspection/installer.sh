@@ -17,7 +17,7 @@ END
     import_output=$(python3 -c "$command")
     if [[ "$import_output" == *"No module named "* ]]; then
         echo "Installing $py_lib..."
-        pip3 install "$py_lib" --user
+        pip3 install "$py_lib" --user --no-cache-dir
     else
         echo "Skipping $py_lib installation as it already exists."
     fi
@@ -25,9 +25,7 @@ END
 
 install_lib "opencv-python" "cv2"
 install_lib "numpy" "numpy"
-install_lib "grpcio" "grpc"
-install_lib "grpcio-tools" "grpc.tools"
-install_lib "protobuf==4.21.4" "google.protobuf"
+install_lib "ultralytics" "ultralytics"
 install_lib "awsiotsdk" "awsiot"
 install_lib "cbor2" "cbor2" #GGv2 Stream Manager req
 install_lib "sysv_ipc" "sysv_ipc"

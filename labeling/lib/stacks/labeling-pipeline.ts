@@ -1,22 +1,15 @@
-import { aws_codecommit as codecommit, aws_s3 as s3, aws_codepipeline as codepipeline, aws_iam as iam, CfnOutput, Fn, pipelines, Stack, StackProps, Stage } from "aws-cdk-lib";
+import { CfnOutput, Stack, Stage, aws_codecommit as codecommit, aws_codepipeline as codepipeline, aws_iam as iam, pipelines, aws_s3 as s3 } from "aws-cdk-lib";
+import { CodePipeline } from 'aws-cdk-lib/aws-events-targets';
 import { ShellStep } from "aws-cdk-lib/pipelines";
 import { Construct } from "constructs";
 import { ExecuteStateMachinePipeline as StateMachinePipeline } from "./statemachine-pipeline";
-import { CodePipeline } from 'aws-cdk-lib/aws-events-targets';
-
 import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
 import { AppConfig } from "../../bin/app";
-
-
 
 export class LabelingPipelineStack extends Stack {
 
     constructor(scope: Construct, id: string, props: AppConfig) {
         super(scope, id, props);
-
-
-
-
 
         //pass in our artifacts bucket isntead of creating a new one
         const LabelingPipeline = new codepipeline.Pipeline(this, 'LabelingPipeline', {
@@ -76,9 +69,9 @@ export class LabelingPipelineStack extends Stack {
         if (props.repoType == "CODECOMMIT" || props.repoType == "CODECOMMIT_PROVIDED") {
             const repo = codecommit.Repository.fromRepositoryName(this, 'ImportedRepo', props.repoName);
             return pipelines.CodePipelineSource.codeCommit(repo, props.branchName, {})
-        }else{
-            return pipelines.CodePipelineSource.connection(`${props.githubRepoOwner}/${props.repoName}`,props.branchName,{connectionArn: props.githubConnectionArn})
-       }
+        } else {
+            return pipelines.CodePipelineSource.connection(`${props.githubRepoOwner}/${props.repoName}`, props.branchName, { connectionArn: props.githubConnectionArn })
+        }
     }
 }
 

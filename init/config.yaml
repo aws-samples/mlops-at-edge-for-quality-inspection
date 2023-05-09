@@ -4,6 +4,3 @@ featureGroupName: tag-quality-inspection
 modelPackageGroupName: TagQualityInspectionPackageGroup
 # modelPackageGroupName in model Registry
 modelPackageGroupDescription: Contains models for quality inspection of metal tags
-
-
-

@@ -1,9 +1,10 @@
-import { 
-    aws_codebuild as codebuild,
-    aws_iam as iam, 
-    Duration, 
+import {
+    Duration,
     StackProps,
-    Stage} from 'aws-cdk-lib';
+    aws_codebuild as codebuild,
+    aws_iam as iam
+} from 'aws-cdk-lib';
+import { LinuxBuildImage, LocalCacheMode } from 'aws-cdk-lib/aws-codebuild';
 import { Construct } from 'constructs';
 
 export class GgInferenceComponentBuildConstruct extends Construct {
@@ -11,7 +12,7 @@ export class GgInferenceComponentBuildConstruct extends Construct {
 
     constructor(scope: Construct, id: string, props?: StackProps) {
         super(scope, id);
-        
+
         const ggInferenceComponentBuild = new codebuild.PipelineProject(this, 'GgInferenceComponentBuild', {
             timeout: Duration.minutes(30),
             buildSpec: codebuild.BuildSpec.fromObject({
@@ -27,16 +28,20 @@ export class GgInferenceComponentBuildConstruct extends Construct {
                             'cd inference/lib/assets/gg_components/;chmod +x buildNewInferenceComponentVersion.sh;./buildNewInferenceComponentVersion.sh',
                         ]
                     }
+                },
+                environment: {
+                    buildImage: LinuxBuildImage.AMAZON_LINUX_2_3,
+                    localCache: LocalCacheMode.DOCKER_LAYER
                 }
-            } )
+            })
         });
-      
+
         ggInferenceComponentBuild.role?.addToPrincipalPolicy(new iam.PolicyStatement({
             actions: ['iam:PassRole', 's3:*', 'greengrass:*', 'iot:DescribeThing', 'cloudformation:DescribeStacks'],
             resources: ['*'],
         }));
-        
+
         this.ggInferenceComponentBuild = ggInferenceComponentBuild
-}
+    }
 }
 

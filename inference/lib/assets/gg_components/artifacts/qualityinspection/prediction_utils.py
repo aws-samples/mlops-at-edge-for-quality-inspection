@@ -1,29 +1,19 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from ast import literal_eval
+import shutil
 from datetime import datetime, timezone
-from distutils.command.config import config
-from json import dumps
-from os import path, listdir
-from agent_pb2 import (
-    CaptureDataRequest,
-    LoadModelRequest,
-    PredictRequest,
-    Tensor,
-    TensorMetadata,
-    UnLoadModelRequest,
-)
+from os import listdir, path
 
-import uuid
 import config_utils
 import cv2
 import IPCUtils as ipc_utils
 import numpy as np
-import shutil
+from ultralytics import YOLO
 
 config_utils.logger.info("Using np from '{}'.".format(np.__file__))
 config_utils.logger.info("Using cv2 from '{}'.".format(cv2.__file__))
+
 
 def transform_image(im):
     if len(im.shape) == 2:
@@ -49,7 +39,8 @@ def predict_from_image(image, name):
     :param image: numpy array of the image passed in for inference
     """
 
-    img_data = cv2.resize(image, (config_utils.SHAPE[1], config_utils.SHAPE[0]))
+    img_data = cv2.resize(
+        image, (config_utils.SHAPE[1], config_utils.SHAPE[0]))
     img_data = cv2.dnn.blobFromImage(img_data,  crop=False)
 
     mean = [123.68, 116.779, 103.939]
@@ -80,7 +71,7 @@ def load_images(image_dir):
             except Exception as e:
                 config_utils.logger.error(
                     "Unable to read the image {} at: {}. Error: {}".format(
-                    image, image_dir, e))
+                        image, image_dir, e))
                 exit(1)
         else:
             config_utils.logger.error(
@@ -88,51 +79,24 @@ def load_images(image_dir):
             exit(1)
     return image_data
 
-def load_model(name, url):
-    load_request = LoadModelRequest()
-    load_request.url = url
-    load_request.name = name
-    config_utils.agent_client.LoadModel(load_request)
-
-def unload_model(name):
-    unload_request = UnLoadModelRequest()
-    unload_request.name = name
-    config_utils.agent_client.UnLoadModel(unload_request)
 
 def predict(image_data, image_name):
     PAYLOAD = {}
     PAYLOAD["timestamp"] = str(datetime.now(tz=timezone.utc))
     PAYLOAD["image_name"] = image_name
     PAYLOAD["inference_results"] = []
+    boxes = []
 
-    input_tensors = [
-        Tensor(
-            tensor_metadata=TensorMetadata(
-                name=config_utils.tensor_name,
-                data_type=5,
-                shape=config_utils.tensor_shape,
-            ),
-            byte_data=image_data.tobytes(),
-        )
-    ]
-    request = PredictRequest(
-        name=config_utils.MODEL_NAME,
-        tensors=input_tensors,
-    )
-    response = config_utils.agent_client.Predict(request)
-    output_tensors = response.tensors
-    capture_data(input_tensors, output_tensors)
+    onnx_model = YOLO(
+        f"{config_utils.MODEL_COMP_PATH}/{config_utils.MODEL_NAME}", task='detect')
+    im2 = cv2.imread(
+        f"{config_utils.INFERENCE_COMP_PATH}/qualityinspection/sample_images/{image_name}")
+    results = onnx_model.predict(source=im2, conf=config_utils.SCORE_THRESHOLD)
 
-    detections = []
+    boxes = get_box_details(results)
 
-    for t in output_tensors:
-        deserialized_bytes = np.frombuffer(t.byte_data, dtype=np.float32)
-        detections.append(np.asarray(deserialized_bytes).tolist())
-
-    detections = filter_detections(detections)
-
-    if(len(detections[0]) > 0):
-        PAYLOAD["inference_results"].append(detections)
+    if (len(boxes[0]) > 0):
+        PAYLOAD["inference_results"].append(boxes)
 
         if config_utils.TOPIC.strip() != "":
             ipc_utils.IPCUtils().publish_results_to_cloud(PAYLOAD)
@@ -140,56 +104,42 @@ def predict(image_data, image_name):
             config_utils.logger.warn(
                 "No topic set to publish the inference results to the cloud.")
 
-        generate_bounding_box_image(path.join(config_utils.IMAGE_DIR, image_name), detections[2])
-        save_image_for_labeling(path.join(config_utils.IMAGE_DIR, image_name))
-        ipc_utils.IPCUtils().upload_to_s3(path.join(config_utils.UPLOAD_DIR_LABELING, image_name), config_utils.UPLOAD_BUCKET_LABELING_FOLDER)
-        ipc_utils.IPCUtils().upload_to_s3(path.join(config_utils.UPLOAD_DIR_INFERENCE, image_name), config_utils.UPLOAD_BUCKET_INFERENCE_FOLDER)
+        # generate_bounding_box_image(path.join(config_utils.IMAGE_DIR, image_name), detections[2])
+        # save_image_for_labeling(path.join(config_utils.IMAGE_DIR, image_name))
+        # ipc_utils.IPCUtils().upload_to_s3(path.join(config_utils.UPLOAD_DIR_LABELING, image_name), config_utils.UPLOAD_BUCKET_LABELING_FOLDER)
+        # ipc_utils.IPCUtils().upload_to_s3(path.join(config_utils.UPLOAD_DIR_INFERENCE, image_name), config_utils.UPLOAD_BUCKET_INFERENCE_FOLDER)
     else:
         config_utils.logger.warn(
-                "No detections higher than {}.".format(config_utils.SCORE_THRESHOLD))
-    
+            "No detections higher than {}.".format(config_utils.SCORE_THRESHOLD))
 
-def filter_detections(detections):
-    filtered_detections = [[],[],[]]
-    classes = np.array(detections[0])
-    confidences = np.array(detections[1])
-    coordinates = np.array(detections[2])
-    indices = np.where(classes == config_utils.CLASS_LABEL)
-    coords_index = 0
-    for index in indices[0]:
-        if(confidences[index] > config_utils.SCORE_THRESHOLD):
-            filtered_detections[0].append(classes[index])
-            filtered_detections[1].append(confidences[index])
-            filtered_detections[2].append(coordinates[coords_index:coords_index+4].flatten().tolist())
-            coords_index += 4
-    return filtered_detections
-        
+
+def get_box_details(results):
+    box_details = [[], []]
+    confidences = results[0].boxes.conf.tolist()
+    coordinates = results[0].boxes.xywh.tolist()
+    box_details[0].append(confidences)
+    box_details[1].append(coordinates)
+    return box_details
+
 
 def save_image_for_labeling(image_path):
     image_name = image_path.split("/")[-1]
-    config_utils.logger.info("Saving image {} for S3 upload and labeling".format(image_name))
-    shutil.copyfile(image_path, "{}{}".format(config_utils.UPLOAD_DIR_LABELING, image_name))
-    config_utils.logger.info("Saved image {} for S3 upload and labeling".format(image_name))
+    config_utils.logger.info(
+        "Saving image {} for S3 upload and labeling".format(image_name))
+    shutil.copyfile(image_path, "{}{}".format(
+        config_utils.UPLOAD_DIR_LABELING, image_name))
+    config_utils.logger.info(
+        "Saved image {} for S3 upload and labeling".format(image_name))
+
 
 def generate_bounding_box_image(image_path, detections):
     image_name = image_path.split("/")[-1]
     config_utils.logger.info("Generating bounding box image %s", image_name)
     image_data = cv2.imread(image_path)
-    
-    for coords in detections:
-        cv2.rectangle(image_data, (round(coords[0]), round(coords[1])), (round(coords[0]+coords[2]), round(coords[1]+coords[3])), (255,0,0), 2)
-    cv2.imwrite(config_utils.UPLOAD_BUCKET_INFERENCE_FOLDER + image_name, image_data)
-    config_utils.logger.info("Generated bounding box image %s", image_name)
 
-def capture_data(input_tensors, output_tensors):
-    capture_id = uuid.uuid4()
-    capture_data_request = CaptureDataRequest(
-        model_name=config_utils.MODEL_NAME,
-        capture_id=str(capture_id),
-        input_tensors=input_tensors,
-        output_tensors=output_tensors,
-    )
-    config_utils.logger.info("Capturing inference data...")
-    capture_data_response = config_utils.agent_client.CaptureData(
-        capture_data_request)
-    config_utils.logger.info("Capture data response: %s", capture_data_response)
+    for coords in detections:
+        cv2.rectangle(image_data, (round(coords[0]), round(coords[1])), (round(
+            coords[0]+coords[2]), round(coords[1]+coords[3])), (255, 0, 0), 2)
+    cv2.imwrite(config_utils.UPLOAD_BUCKET_INFERENCE_FOLDER +
+                image_name, image_data)
+    config_utils.logger.info("Generated bounding box image %s", image_name)
