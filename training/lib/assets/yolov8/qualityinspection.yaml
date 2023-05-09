@@ -1,0 +1,10 @@
+path: /opt/ml/input/data
+train: train
+val: validation
+test: test
+
+# number of classes
+nc: 1
+
+# class names
+names: [ 'scratch' ]

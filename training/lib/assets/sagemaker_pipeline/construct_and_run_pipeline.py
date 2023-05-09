@@ -1,34 +1,25 @@
 #!/bin/python
 
-
 import argparse
 import os
 import logging
-from sagemaker.workflow.parameters import (
-    ParameterString, ParameterFloat
-)
-
+from sagemaker.workflow.parameters import ParameterString, ParameterFloat
 from pipeline_helper import run_pipeline
 from sagemaker.workflow.pipeline import Pipeline
-from sagemaker.processing import ProcessingInput, ProcessingOutput
+from sagemaker.processing import ProcessingOutput
 from sagemaker.workflow.steps import ProcessingStep, TrainingStep
 from sagemaker.sklearn.processing import ScriptProcessor
-from sagemaker.workflow.properties import PropertyFile
 from sagemaker.workflow.step_collections import RegisterModel
 from sagemaker.inputs import TrainingInput
-from sagemaker.mxnet import MXNet
+from sagemaker.pytorch import PyTorch
 from sagemaker.workflow.execution_variables import ExecutionVariables
 from sagemaker.workflow.functions import Join
 from sagemaker.workflow.conditions import ConditionGreaterThanOrEqualTo
-from sagemaker.workflow.condition_step import ConditionStep, JsonGet
+from sagemaker.workflow.condition_step import ConditionStep
 from sagemaker.workflow.retry import (
     SageMakerJobExceptionTypeEnum,
     SageMakerJobStepRetryPolicy
 )
-
-
-
-
 
 def main():
     """The main harness that creates or updates and runs the pipeline.
@@ -101,10 +92,8 @@ def main():
 
     run_pipeline(pipeline=pipeline, role=args.role)
 
-
 def construct_pipeline(tmp_artifacts_uri=None, role=None, model_path=None, preprocess_image=None, training_instance_type=None, pipeline_assets_prefix=None,feature_group_name = None, model_package_group_name = None):
 
-    
     model_approval_status = ParameterString(
         name="ModelApprovalStatus",
         default_value="Approved",
@@ -129,16 +118,16 @@ def construct_pipeline(tmp_artifacts_uri=None, role=None, model_path=None, prepr
         role=role,
     )
 
-    preprocess_step = ProcessingStep(
+    step_preprocess = ProcessingStep(
         name="LoadAndPreprocessDataset",
         processor=processor,
         outputs=[
             ProcessingOutput(output_name="train",
-                             source="/opt/ml/processing/output/train", destination=f'{tmp_artifacts_uri}/train-rec'),
+                             source="/opt/ml/processing/output/train", destination=f'{tmp_artifacts_uri}/train'),
             ProcessingOutput(output_name="validation",
-                             source="/opt/ml/processing/output/validation", destination=f'{tmp_artifacts_uri}/validation-rec'),
+                             source="/opt/ml/processing/output/validation", destination=f'{tmp_artifacts_uri}/validation'),
             ProcessingOutput(output_name="test",
-                             source="/opt/ml/processing/output/test", destination=f'{tmp_artifacts_uri}/test-rec'),
+                             source="/opt/ml/processing/output/test", destination=f'{tmp_artifacts_uri}/test'),
         ],
         code="../docker/preprocess.py",
         job_arguments=['--query-results-s3uri', Join(
@@ -147,41 +136,28 @@ def construct_pipeline(tmp_artifacts_uri=None, role=None, model_path=None, prepr
 
     s3_custom_code_upload_location = f"{pipeline_assets_prefix}/tmp/"
 
-    yolo_estimator = MXNet(
+    yolo_estimator = PyTorch(
         base_job_name="quality-inspection",
-        entry_point="../docker/train_yolo.py",
+        entry_point="train.py",
         role=role,
-        output_path=model_path,
-        code_location=s3_custom_code_upload_location,
+        py_version="py38",
+        framework_version="1.12",
         instance_count=1,
-        instance_type=training_instance_type,
-        framework_version="1.8.0",
-        py_version="py37",
-        metric_definitions=[
-            {'Name': 'train:Loss',
-                'Regex': '.*ObjLoss=(.*), BoxCenterLoss=.*, BoxScaleLoss=.*, ClassLoss=.*'},
-            {'Name': 'train:BoxCenterLoss',
-                'Regex': '.*ObjLoss=.*, BoxCenterLoss=(.*), BoxScaleLoss=.*, ClassLoss=.*'},
-            {'Name': 'train:BoxScaleLoss',
-                'Regex': '.*ObjLoss=.*, BoxCenterLoss=.*, BoxScaleLoss=(.*), ClassLoss=.*'},
-            {'Name': 'train:ClassLoss',
-                'Regex': '.*ObjLoss=.*, BoxCenterLoss=.*, BoxScaleLoss=.*, ClassLoss=(.*)'},
-            {'Name': 'validation:mAP', 'Regex': 'mAP=(.*)'},
-            {'Name': 'class_scratch:mAP', 'Regex': 'scratch=(.*)'}
-        ],
-        hyperparameters={
-            "num-epochs": param_num_epochs,
-            "data-shape": "300,450",
-            "gpus": "0",
-            "num-workers": "1",
-            "batch-size": 8,
-            "warmup-epochs": 1,
-            "no-mixup-epochs": 5,
+        instance_type='ml.g4dn.xlarge',
+        source_dir='../yolov8',
+        hyperparameters = {
+            'epochs': 100, 
+            'batch_size': 64,
+            'img_size': 480,
+            'export_to_onnx': True
         },
+        metric_definitions=[
+            {"Name": "map", "Regex": ".*map:([0-9\\.]+).*"},
+        ],
     )
 
     step_train = TrainingStep(
-        name="Train-QualityInspection-Model",
+        name="TrainQualityInspectionModel",
         estimator=yolo_estimator,
         retry_policies=[
             SageMakerJobStepRetryPolicy(
@@ -194,49 +170,24 @@ def construct_pipeline(tmp_artifacts_uri=None, role=None, model_path=None, prepr
         inputs={
             "train": TrainingInput(
                 input_mode="File",
-                s3_data=preprocess_step.properties.ProcessingOutputConfig.Outputs[
+                s3_data=step_preprocess.properties.ProcessingOutputConfig.Outputs[
                     "train"].S3Output.S3Uri,
             ),
-            "val": TrainingInput(
+            "validation": TrainingInput(
                 input_mode="File",
-                s3_data=preprocess_step.properties.ProcessingOutputConfig.Outputs[
+                s3_data=step_preprocess.properties.ProcessingOutputConfig.Outputs[
                     "validation"].S3Output.S3Uri,
-
             ),
+            "test": TrainingInput(
+                input_mode="File",
+                s3_data=step_preprocess.properties.ProcessingOutputConfig.Outputs[
+                    "test"].S3Output.S3Uri,
+            )
         },
     )
-    evaluation_report = PropertyFile(
-        name="EvaluationReport",
-        output_name="evaluation",
-        path="evaluation.json",
-    )
-
-    step_eval = ProcessingStep(
-        name="EvaluateModel",
-        processor=processor,
-        inputs=[
-            ProcessingInput(
-                source=step_train.properties.ModelArtifacts.S3ModelArtifacts,
-                destination="/opt/ml/processing/model",
-            ),
-            ProcessingInput(
-                source=preprocess_step.properties.ProcessingOutputConfig.Outputs[
-                    "test"
-                ].S3Output.S3Uri,
-                destination="/opt/ml/processing/test",
-            ),
-        ],
-        outputs=[
-            ProcessingOutput(
-                output_name="evaluation", source="/opt/ml/processing/evaluation"
-            ),
-        ],
-        code=os.path.join("../docker/evaluate.py"),
-        property_files=[evaluation_report]
-    )
-
+      
     step_register = RegisterModel(
-        name="Register-Model",
+        name="RegisterModel",
         estimator=yolo_estimator,
         model_data=step_train.properties.ModelArtifacts.S3ModelArtifacts,
         content_types=["image/jpeg"],
@@ -247,35 +198,34 @@ def construct_pipeline(tmp_artifacts_uri=None, role=None, model_path=None, prepr
         approval_status=model_approval_status,
     )
 
-    # condition step for evaluating model quality and branching execution
-    cond_lte = ConditionGreaterThanOrEqualTo(
-        left=JsonGet(
-            step=step_eval,
-            property_file=evaluation_report,
-            json_path="metrics.map",
-        ),
+    cond_gte = ConditionGreaterThanOrEqualTo(
+        left=step_train.properties.FinalMetricDataList[0].Value,
         right=param_map_threshhold,
     )
 
     step_cond = ConditionStep(
-        name="CheckEvaluation",
-        conditions=[cond_lte],
+        name="EvaluateModelQuality",
+        conditions=[cond_gte],
         if_steps=[step_register],
         else_steps=[],
     )
 
-    pipeline_name = f"TrainingPipeline"
+    pipeline_name = f"QualityInspectionModelTraining"
 
     pipeline = Pipeline(
         name=pipeline_name,
-        parameters=[param_num_epochs, param_map_threshhold,
-                    model_approval_status
-                    ],
-        steps=[preprocess_step,
-               step_train, step_eval, step_cond],
+        parameters=[
+            param_num_epochs, 
+            param_map_threshhold,
+            model_approval_status
+        ],
+        steps=[
+            step_preprocess, 
+            step_train, 
+            step_cond
+        ]
     )
     return pipeline
-
 
 if __name__ == "__main__":
     main()

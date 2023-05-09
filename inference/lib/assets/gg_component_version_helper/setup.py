@@ -10,7 +10,6 @@ logger.setLevel(logging.INFO)
 
 greengrass_client = boto3.client('greengrassv2')
 
-
 def find_latest_version(component_name_to_search):
     components = []
     for p in greengrass_client.get_paginator('list_components').paginate():
@@ -20,14 +19,12 @@ def find_latest_version(component_name_to_search):
             return c['latestVersion']['componentVersion']
     return "0.0.0"
 
-
 def create_next_version(latest_version):
     semver_parts = latest_version.split(".")
     last_part = semver_parts[len(semver_parts)-1]
     next_version = int(last_part) + 1
     semver_parts[len(semver_parts)-1] = str(next_version)
     return ".".join(semver_parts)
-
 
 def handler(event, context):
     component_name = event["ComponentName"]
@@ -38,7 +35,6 @@ def handler(event, context):
     logger.info(
         f"Next version for component '{component_name}' is '{next_version}'")
     return {"NextVersion": next_version, "LatestVersion": latest_version}
-
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:

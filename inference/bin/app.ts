@@ -19,7 +19,6 @@ export interface AppConfig extends StackProps {
   readonly pipelinePrefix: string;
   readonly assetsBucket: string;
   readonly ggProps: {
-    readonly deviceFleetName:string
     readonly thingIotPolicyName:string
     readonly tokenExchangeRoleAlias:string
     readonly allowAssumeTokenExchangeRolePolicyName:string
@@ -27,8 +26,6 @@ export interface AppConfig extends StackProps {
   };
   readonly deploymentProps: {
     readonly smModelPackageGroupName:string
-    readonly s3OutputUriCompiledModel:string
-    readonly s3OutputUriPackagedModel:string
     readonly ggModelComponentName:string
     readonly ggInferenceComponentName:string
   };
@@ -46,7 +43,6 @@ function getConfig() {
     pipelinePrefix: configYaml['pipelineAssetsPrefix'],
     assetsBucket: Fn.importValue('mlopsDataBucket'), 
     ggProps: {
-      deviceFleetName: configYaml['gg']['deviceFleetName'],
       thingIotPolicyName: configYaml['gg']['thingIotPolicyName'],
       tokenExchangeRoleAlias: configYaml['gg']['tokenExchangeRoleAlias'],
       allowAssumeTokenExchangeRolePolicyName: configYaml['gg']['allowAssumeTokenExchangeRolePolicyName'],
@@ -54,8 +50,6 @@ function getConfig() {
     },
     deploymentProps: {
       smModelPackageGroupName: Fn.importValue('mlopsModelPackageGroup'),
-      s3OutputUriCompiledModel: configYaml['edgeDeploymentOrchestration']['s3OutputUriCompiledModel'],
-      s3OutputUriPackagedModel: configYaml['edgeDeploymentOrchestration']['s3OutputUriPackagedModel'],
       ggModelComponentName: configYaml['edgeDeploymentOrchestration']['ggModelComponentName'],
       ggInferenceComponentName: configYaml['edgeDeploymentOrchestration']['ggInferenceComponentName']
     }

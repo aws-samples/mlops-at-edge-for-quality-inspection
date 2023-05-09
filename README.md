@@ -66,7 +66,7 @@ Note: On first deployment, full deployment of all pipelines takes about 1 hour.
 The greengrass device runs inference on a set of sample images to simulate the camera and publishes results every 5 seconds to an MQTT topic. The quickest way to validate this is to use the MQTT client in the AWS console:
 
 1. Open the [MQTT client](https://console.aws.amazon.com/iot/home#/test)
-2. In the topic filter type: `gg/sageMakerEdgeManager/object-detection` and hit the `Subscribe` button
+2. In the topic filter type: `qualityinspection/scratch-detection` and hit the `Subscribe` button
 3. You should see an output like below after about 5 seconds:
 
 ```

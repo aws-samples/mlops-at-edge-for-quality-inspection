@@ -23,7 +23,7 @@ export class LabelingInitStack extends Stack {
         const seedAssetsRole = this.createSeedAssetsRole()
         const bucketDeployment: s3deploy.BucketDeployment = this.seedInitialAssetsToBucket(this.dataBucket)
         this.featureGroup = this.seed_labels_to_feature_store(seedAssetsRole, this.dataBucket, bucketDeployment, props)
-        this.modelPackageGroup = this.seed_initial_model(seedAssetsRole, this.dataBucket, bucketDeployment, props)
+        this.modelPackageGroup = this.createModelPackageGroup(props)
 
         new CfnOutput(this, 'modelPackageGroup', {
             value: this.modelPackageGroup.modelPackageGroupName,
@@ -101,9 +101,7 @@ export class LabelingInitStack extends Stack {
                 `arn:aws:iam::${Stack.of(this).account}:role/cdk-hnb659fds-deploy-role-${Stack.of(this).account}-${Stack.of(this).region}`
               )]
         })
-
         
-
         dataBucket.addToResourcePolicy(myBucketPolicy);
         dataBucket.addToResourcePolicy(cfnBucketPolicy);
         dataBucket.addToResourcePolicy(cdkBucketPolicy);
@@ -164,7 +162,6 @@ export class LabelingInitStack extends Stack {
             }
         };
 
-
         const featureGroup = new sagemaker.CfnFeatureGroup(this, 'MyCfnFeatureGroup', {
             eventTimeFeatureName: 'event_time',
             featureDefinitions: [{
@@ -208,8 +205,6 @@ export class LabelingInitStack extends Stack {
 
         });
 
-
-
         const seedLabelsFunction = new DockerImageFunction(this, 'SeedLabelsToFeatureStoreFunction', {
             code: DockerImageCode.fromImageAsset(path.join(__dirname, '../lambda/seed_labels_to_feature_store')),
             architecture: Architecture.X86_64,
@@ -218,8 +213,6 @@ export class LabelingInitStack extends Stack {
             role: role,
             timeout: Duration.seconds(300),
             logRetention: logs.RetentionDays.ONE_WEEK,
-
-
         });
 
         const customResource = new CustomResource(this, 'SeedLabelsCustomResource', {
@@ -235,13 +228,7 @@ export class LabelingInitStack extends Stack {
         return featureGroup
     }
 
-
-
-
-
-
-
-    seed_initial_model(role: Role, dataBucket: Bucket, bucketDeployment: s3deploy.BucketDeployment, props: AppConfig) {
+    createModelPackageGroup(props: AppConfig) {
 
         const cfnModelPackageGroup = new sagemaker.CfnModelPackageGroup(this, 'MyCfnModelPackageGroup', {
             modelPackageGroupName: props.modelPackageGroupName,
@@ -249,33 +236,6 @@ export class LabelingInitStack extends Stack {
         });
 
         cfnModelPackageGroup.applyRemovalPolicy(RemovalPolicy.DESTROY)
-
-        const seed_initial_model_function = new lambda_python.PythonFunction(this, 'SeedInitialModelLambda', {
-            entry: 'lib/lambda/seed_initial_model',
-            runtime: lambda.Runtime.PYTHON_3_9,
-            timeout: Duration.seconds(300),
-            logRetention: logs.RetentionDays.ONE_WEEK,
-            role: role,
-            memorySize: 1024,
-            environment: {
-
-            }
-        });
-
-        const cr = new CustomResource(this, 'SeedModelCustomResource', {
-            serviceToken: seed_initial_model_function.functionArn,
-            properties: {
-                model_uri: `s3://${dataBucket.bucketName}/pipeline/assets/model/model.tar.gz`,
-                model_package_group_name: props.modelPackageGroupName
-            }
-        });
-        cr.node.addDependency(bucketDeployment);
         return cfnModelPackageGroup
-    }
-
-
-
-    deployFeatureGroup(bucket: Bucket, role: Role) {
-
     }
 }

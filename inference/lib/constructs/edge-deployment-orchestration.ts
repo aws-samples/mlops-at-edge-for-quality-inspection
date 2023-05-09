@@ -4,7 +4,6 @@ import {
   aws_lambda as lambda,
   aws_logs as logs, aws_stepfunctions as stepfunctions,
   Duration,
-  Fn,
   Stack
 } from 'aws-cdk-lib';
 import { StateMachineInput, StepFunctionInvokeAction } from "aws-cdk-lib/aws-codepipeline-actions";
@@ -13,7 +12,7 @@ import { Construct } from 'constructs';
 import * as path from 'path';
 import { AppConfig } from '../../bin/app'
 
-export interface EdgeDeploymentOrchestrationConstructProps extends AppConfig{
+export interface EdgeDeploymentOrchestrationConstructProps extends AppConfig {
   iotThingName: string;
 }
 export class EdgeDeploymentOrchestrationConstruct extends Construct {
@@ -34,7 +33,8 @@ export class EdgeDeploymentOrchestrationConstruct extends Construct {
         iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonS3FullAccess'),
         iam.ManagedPolicy.fromAwsManagedPolicyName('AWSLambda_FullAccess'),
         iam.ManagedPolicy.fromAwsManagedPolicyName('AWSGreengrassFullAccess'),
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AWSIoTFullAccess')
+        iam.ManagedPolicy.fromAwsManagedPolicyName('AWSIoTFullAccess'),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('CloudWatchFullAccess')
       ],
     });
     stepFunctionRole.assumeRolePolicy?.addStatements(
@@ -66,14 +66,11 @@ export class EdgeDeploymentOrchestrationConstruct extends Construct {
       }
     });
 
-    asl.States['Create Neo compilation job'].Parameters.RoleArn = stepFunctionRole.roleArn;
-    asl.States['Create edge packaging job'].Parameters.RoleArn = stepFunctionRole.roleArn;
-    asl.States['Find next greengrass component version'].Parameters.FunctionName = findLatestComponentVersionFunction.functionArn;
-    asl.States['Find next greengrass component version'].Parameters.Payload.ComponentName = props.deploymentProps.ggModelComponentName;
-    asl.States['Get Inference component version'].Parameters.FunctionName = findLatestComponentVersionFunction.functionArn;
-    asl.States['Get Inference component version'].Parameters.Payload.ComponentName = props.deploymentProps.ggInferenceComponentName;
-    asl.States['Get thing ARN'].Parameters.ThingName = props.iotThingName;
-    asl.States['Create new deployment'].Parameters.Components['aws.greengrass.SageMakerEdgeManager'].ConfigurationUpdate.Merge = `{\"DeviceFleetName\":\"devicefleet\", \"BucketName\": \"${props.assetsBucket}\"}`
+    asl.States['Get next Greengrass model component version'].Parameters.FunctionName = findLatestComponentVersionFunction.functionArn;
+    asl.States['Get next Greengrass model component version'].Parameters.Payload.ComponentName = props.deploymentProps.ggModelComponentName;
+    asl.States['Get inference component version'].Parameters.FunctionName = findLatestComponentVersionFunction.functionArn;
+    asl.States['Get inference component version'].Parameters.Payload.ComponentName = props.deploymentProps.ggInferenceComponentName;
+    asl.States['Get IoT Thing ARN'].Parameters.ThingName = props.iotThingName;
 
     const packageModelWorkflow = new stepfunctions.CfnStateMachine(this, 'EdgeDeploymentOrchestrationStepFunction', {
       roleArn: stepFunctionRole.roleArn,
@@ -82,13 +79,11 @@ export class EdgeDeploymentOrchestrationConstruct extends Construct {
     });
 
     const stepFunctionInput = {
-      "ModelPackageGroupName": props.deploymentProps.smModelPackageGroupName,
-      "s3OutputUriCompiledModel": `s3://${props.assetsBucket}/${props.pipelinePrefix}/pipeline/inference/output/compiled-model`, 
-      "s3OutputUriPackagedModel": `s3://${props.assetsBucket}/${props.pipelinePrefix}/pipeline/inference/output/packaged-model` 
+      "ModelPackageGroupName": props.deploymentProps.smModelPackageGroupName
     }
-    
+
     this.stepFunctionArn = `arn:aws:states:${Stack.of(this).region}:${Stack.of(this).account}:stateMachine:${this.stepFunctionName}`;
-    
+
     this.stepFunctionAction = new StepFunctionInvokeAction({
       actionName: 'Invoke',
       stateMachine: StateMachine.fromStateMachineArn(this, 'state-machine-from-arn', this.stepFunctionArn),
@@ -99,95 +94,41 @@ export class EdgeDeploymentOrchestrationConstruct extends Construct {
 
 // TODO:  Add native CDK definition
 const asl = {
-  "StartAt": "Find ARN of latest model package",
+  "StartAt": "Get SageMaker model package ARN",
   "States": {
-    "Find ARN of latest model package": {
+    "Get SageMaker model package ARN": {
       "Type": "Task",
+      "Next": "Get SageMaker model URL",
       "Parameters": {
-        "ModelPackageGroupName.$": "$.ModelPackageGroupName",
-        "ModelApprovalStatus": "Approved",
+        "ModelPackageGroupName": "TagQualityInspectionPackageGroup",
         "SortBy": "CreationTime",
-        "SortOrder": "Descending"
+        "SortOrder": "Descending",
+        "MaxResults": 1
       },
       "Resource": "arn:aws:states:::aws-sdk:sagemaker:listModelPackages",
       "ResultSelector": {
-        "ModelPackageArn.$": "$.ModelPackageSummaryList[0].ModelPackageArn"
+        "value.$": "$.ModelPackageSummaryList[0].ModelPackageArn"
       },
-      "Next": "Find Name from model package ARN",
-      "ResultPath": "$.previousOutput"
+      "ResultPath": "$.ModelPackageArn"
     },
-    "Find Name from model package ARN": {
+    "Get SageMaker model URL": {
       "Type": "Task",
-      "Next": "Create Neo compilation job",
+      "Next": "Get next Greengrass model component version",
       "Parameters": {
-        "ModelPackageName.$": "$.previousOutput.ModelPackageArn"
+        "ModelPackageName.$": "$.ModelPackageArn.value"
       },
       "Resource": "arn:aws:states:::aws-sdk:sagemaker:describeModelPackage",
       "ResultSelector": {
-        "ModelS3Uri.$": "$.InferenceSpecification.Containers[0].ModelDataUrl"
+        "value.$": "$.InferenceSpecification.Containers[0].ModelDataUrl"
       },
-      "ResultPath": "$.previousOutput"
+      "ResultPath": "$.ModelUrl"
     },
-    "Create Neo compilation job": {
+    "Get next Greengrass model component version": {
       "Type": "Task",
-      "Parameters": {
-        "CompilationJobName.$": "States.Format('compile-{}', $$.Execution.Name)",
-        "InputConfig": {
-          "DataInputConfig": "{'data':[1, 3, 300, 450]}",
-          "Framework": "MXNET",
-          "S3Uri.$": "$.previousOutput.ModelS3Uri"
-        },
-        "OutputConfig": {
-          "TargetPlatform": {
-            "Arch": "X86_64",
-            "Os": "LINUX"
-          },
-          "S3OutputLocation.$": "$.s3OutputUriCompiledModel"
-        },
-        "RoleArn": "arn:aws:iam::343994789671:role/EdgeDeployment-EdgePackag-edgepackagingsfnexecrole-8ICO841DD2MQ",
-        "StoppingCondition": {
-          "MaxRuntimeInSeconds": 600
-        }
-      },
-      "Resource": "arn:aws:states:::aws-sdk:sagemaker:createCompilationJob",
-      "Next": "Wait for compilation to finish",
-      "ResultPath": "$.previousOutput"
-    },
-    "Wait for compilation to finish": {
-      "Type": "Wait",
-      "Seconds": 30,
-      "Next": "Fetch compilation status"
-    },
-    "Fetch compilation status": {
-      "Type": "Task",
-      "Parameters": {
-        "CompilationJobName.$": "States.Format('compile-{}', $$.Execution.Name)"
-      },
-      "Resource": "arn:aws:states:::aws-sdk:sagemaker:describeCompilationJob",
-      "Next": "Check compilation status",
-      "ResultPath": "$.previousOutput"
-    },
-    "Check compilation status": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "$.previousOutput.CompilationJobStatus",
-          "StringEquals": "COMPLETED",
-          "Next": "Find next greengrass component version"
-        },
-        {
-          "Variable": "$.previousOutput.CompilationJobStatus",
-          "StringEquals": "FAILED",
-          "Next": "Fail"
-        }
-      ],
-      "Default": "Wait for compilation to finish"
-    },
-    "Find next greengrass component version": {
-      "Type": "Task",
+      "Next": "Create new Greengrass model component",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName": "arn:aws:lambda:eu-west-1:343994789671:function:EdgeDeployment-EdgePackag-LatestComponentVersion5F-sOp22PmiH5W9",
+        "FunctionName": "",
         "Payload": {
           "ComponentName": "com.qualityinspection.model"
         }
@@ -204,76 +145,76 @@ const asl = {
           "BackoffRate": 2
         }
       ],
-      "Next": "Create edge packaging job",
-      "ResultPath": "$.previousOutput"
-    },
-    "Create edge packaging job": {
-      "Type": "Task",
-      "Parameters": {
-        "CompilationJobName.$": "States.Format('compile-{}', $$.Execution.Name)",
-        "EdgePackagingJobName.$": "States.Format('packaging-{}', $$.Execution.Name)",
-        "ModelName": "quality-inspection-model-edgemanager",
-        "ModelVersion.$": "$.previousOutput.Payload.NextVersion",
-        "OutputConfig": {
-          "PresetDeploymentType": "GreengrassV2Component",
-          "PresetDeploymentConfig": {
-            "ComponentName": "com.qualityinspection.model",
-            "ComponentVersion.$": "$.previousOutput.Payload.NextVersion"
-          },
-          "S3OutputLocation.$": "$.s3OutputUriPackagedModel"
-        },
-        "RoleArn": "arn:aws:iam::343994789671:role/EdgeDeployment-EdgePackag-edgepackagingsfnexecrole-8ICO841DD2MQ"
+      "ResultSelector": {
+        "value.$": "$.Payload.NextVersion"
       },
-      "Resource": "arn:aws:states:::aws-sdk:sagemaker:createEdgePackagingJob",
-      "Next": "Wait for packaging to finish",
-      "ResultPath": "$.previousOutput"
+      "ResultPath": "$.ModelNextVersion"
     },
-    "Wait for packaging to finish": {
-      "Type": "Wait",
-      "Seconds": 15,
-      "Next": "Fetch packaging status"
-    },
-    "Fetch packaging status": {
+    "Create new Greengrass model component": {
       "Type": "Task",
+      "Next": "Get IoT Thing ARN",
       "Parameters": {
-        "EdgePackagingJobName.$": "States.Format('packaging-{}', $$.Execution.Name)"
-      },
-      "Resource": "arn:aws:states:::aws-sdk:sagemaker:describeEdgePackagingJob",
-      "Next": "Check packaging status",
-      "ResultPath": "$.previousOutput"
-    },
-    "Check packaging status": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "$.previousOutput.EdgePackagingJobStatus",
-          "StringEquals": "COMPLETED",
-          "Next": "Get thing ARN"
-        },
-        {
-          "Variable": "$.previousOutput.EdgePackagingJobStatus",
-          "StringEquals": "FAILED",
-          "Next": "Fail"
+        "InlineRecipe": {
+          "RecipeFormatVersion": "2020-01-25",
+          "ComponentName": "com.qualityinspection.model",
+          "ComponentVersion.$": "$.ModelNextVersion.value",
+          "ComponentPublisher": "AWS",
+          "Manifests": [
+            {
+              "Platform": {
+                "os": "*",
+                "architecture": "*"
+              },
+              "Lifecycle": {
+                "Install": {
+                  "Script": "tar xzf {artifacts:path}/model.tar.gz -C {artifacts:decompressedPath}",
+                  "RequiresPrivilege": true
+                },
+                "Upgrade": {
+                  "Script": "tar xzf {artifacts:path}/model.tar.gz -C {artifacts:decompressedPath}",
+                  "RequiresPrivilege": true
+                },
+                "Uninstall": {
+                  "Script": "rm -rf {artifacts:decompressedPath} {artifacts:path}",
+                  "RequiresPrivilege": true
+                }
+              },
+              "Artifacts": [
+                {
+                  "Uri.$": "$.ModelUrl.value",
+                  "Permission": {
+                    "Read": "OWNER",
+                    "Execute": "NONE"
+                  }
+                }
+              ]
+            }
+          ]
         }
-      ],
-      "Default": "Wait for packaging to finish"
+      },
+      "Resource": "arn:aws:states:::aws-sdk:greengrassv2:createComponentVersion",
+      "ResultPath": null
     },
-    "Get thing ARN": {
+    "Get IoT Thing ARN": {
       "Type": "Task",
-      "Next": "Get Inference component version",
+      "Next": "Get inference component version",
       "Parameters": {
-        "ThingName": "EdgeThing-EdgeDeployment-GreengrassStack"
+        "ThingName": "EdgeThing-MLOps-Inference-Statemachine-Pipeline-Stack"
       },
       "Resource": "arn:aws:states:::aws-sdk:iot:describeThing",
-      "ResultPath": "$.describeThingOutput"
+      "ResultSelector": {
+        "Arn.$": "$.ThingArn",
+        "Name.$": "$.ThingName"
+      },
+      "ResultPath": "$.IotThing"
     },
-    "Get Inference component version": {
+    "Get inference component version": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName": "arn:aws:lambda:eu-west-1:343994789671:function:EdgeDeployment-EdgePackag-LatestComponentVersion5F-sOp22PmiH5W9",
+        "FunctionName": "",
         "Payload": {
-          "ComponentName": "com.qualityinspection.model"
+          "ComponentName": "com.qualityinspection"
         }
       },
       "Retry": [
@@ -289,42 +230,46 @@ const asl = {
         }
       ],
       "Next": "Create new deployment",
-      "ResultPath": "$.infererenceComponent"
+      "ResultSelector": {
+        "value.$": "$.Payload.LatestVersion"
+      },
+      "ResultPath": "$.InfererenceComponentVersion"
     },
     "Create new deployment": {
       "Type": "Task",
       "Parameters": {
-        "TargetArn.$": "$.describeThingOutput.ThingArn",
+        "TargetArn.$": "$.IotThing.Arn",
         "Components": {
           "aws.greengrass.Nucleus": {
-            "ComponentVersion": "2.5.6"
+            "ComponentVersion": "2.9.6",
+            "ConfigurationUpdate": {
+              "Merge": {
+                "DefaultConfiguration": {
+                  "interpolateComponentConfiguration": true
+                }
+              }
+            }
           },
           "aws.greengrass.Cli": {
-            "ComponentVersion": "2.5.6"
-          },
-          "aws.greengrass.SageMakerEdgeManager": {
-            "ComponentVersion": "1.1.0",
-            "ConfigurationUpdate": {
-              "Merge": "{\"DeviceFleetName\":\"devicefleet\", \"BucketName\": \"datapreloadstack-mlopsdatabucket422d8d9c-1veeoqon85us9\"}"
-            }
+            "ComponentVersion": "2.9.6"
           },
           "com.qualityinspection.model": {
-            "ComponentVersion.$": "$.previousOutput.ModelVersion",
-            "ConfigurationUpdate": {
-              "Merge": "{\"ModelPath\": \"../com.qualityinspection.model\"}},\"Lifecycle\":{\"install\": {\"script\": \"tar xf {artifacts:path}/quality-inspection-model-edgemanager-{ComponentVersion}.tar.gz -C {configuration:/ModelPath}\"}}}"
-            }
+            "ComponentVersion.$": "$.ModelNextVersion.value"
           },
           "com.qualityinspection": {
-            "ComponentVersion.$": "$.infererenceComponent.Payload.LatestVersion",
+            "ComponentVersion.$": "$.InfererenceComponentVersion.value",
             "ConfigurationUpdate": {
-              "Merge": "{\"com.qualityinspection.model\":{\"VersionRequirement\": \">={com.qualityinspection.model:ComponentVersion}\", \"DependencyType\": \"HARD\"}, \"InferenceInterval\":\"4\"}"
+              "Merge": "{\"com.qualityinspection.model\":{\"VersionRequirement\": \">={com.qualityinspection.model:ComponentVersion}\", \"DependencyType\": \"HARD\"}}"
             }
           }
         }
       },
       "Resource": "arn:aws:states:::aws-sdk:greengrassv2:createDeployment",
       "Next": "Wait for deployment state change",
-      "ResultPath": "$.createDeploymentOutput"
+      "ResultSelector": {
+        "value.$": "$.DeploymentId"
+      },
+      "ResultPath": "$.DeploymentId"
     },
     "Wait for deployment state change": {
       "Type": "Wait",
@@ -334,22 +279,25 @@ const asl = {
     "Get deployment state": {
       "Type": "Task",
       "Parameters": {
-        "DeploymentId.$": "$.createDeploymentOutput.DeploymentId"
+        "DeploymentId.$": "$.DeploymentId.value"
       },
       "Resource": "arn:aws:states:::aws-sdk:greengrassv2:getDeployment",
       "Next": "Check deployment state",
-      "ResultPath": "$.getDeploymentStatusOutput"
+      "ResultSelector": {
+        "value.$": "$.DeploymentStatus"
+      },
+      "ResultPath": "$.DeploymentStatus"
     },
     "Check deployment state": {
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.getDeploymentStatusOutput.DeploymentStatus",
+          "Variable": "$.DeploymentStatus.value",
           "StringMatches": "COMPLETED",
           "Next": "Wait for device state change"
         },
         {
-          "Variable": "$.getDeploymentStatusOutput.DeploymentStatus",
+          "Variable": "$.DeploymentStatus.value",
           "StringMatches": "ACTIVE",
           "Next": "Wait for deployment state change"
         }
@@ -365,16 +313,19 @@ const asl = {
       "Type": "Task",
       "Next": "Check core device state",
       "Parameters": {
-        "CoreDeviceThingName.$": "$.describeThingOutput.ThingName"
+        "CoreDeviceThingName.$": "$.IotThing.Name"
       },
       "Resource": "arn:aws:states:::aws-sdk:greengrassv2:getCoreDevice",
-      "ResultPath": "$.getCoreDeviceOutput"
+      "ResultSelector": {
+        "value.$": "$.Status"
+      },
+      "ResultPath": "$.CoreDeviceStatus"
     },
     "Check core device state": {
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.getCoreDeviceOutput.Status",
+          "Variable": "$.CoreDeviceStatus.value",
           "StringMatches": "HEALTHY",
           "Next": "Success"
         }

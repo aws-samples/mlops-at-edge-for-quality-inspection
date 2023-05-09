@@ -13,7 +13,6 @@ aws iot detach-thing-principal --thing-name ${THING_NAME} --principal "$CERTIFIC
 aws iot detach-policy --policy-name BlogPostGGV2IoTThingPolicy --target "$CERTIFICATE_ARN"
 aws iot detach-policy --policy-name GreengrassTESCertificatePolicyBlogPostGGCoreTokenExchangeRoleAlias --target "$CERTIFICATE_ARN"
 aws iot delete-certificate --certificate-id "$CERTIFICATE_ID"
-aws iot delete-role-alias --role-alias SageMakerEdge-devicefleet-MLOps-Inference-Statemachine-Pipeline-Stack
 aws greengrassv2 delete-core-device --core-device-thing-name ${GG_CORE_DEVICE}
 GG_COMPONENTS=($(aws greengrassv2 list-components --output text --query "components[?starts_with(componentName, 'com.qualityinspection')].[arn]"))
 for component in ${GG_COMPONENTS}
@@ -29,3 +28,7 @@ cd $SCRIPT_DIR/.. && cdk destroy --all --force
 echo "Deleting stack MLOps-Inference-Statemachine-Pipeline-Stack"
 aws cloudformation delete-stack --stack-name MLOps-Inference-Statemachine-Pipeline-Stack
 aws cloudformation wait stack-delete-complete --stack-name MLOps-Inference-Statemachine-Pipeline-Stack
+
+
+
+

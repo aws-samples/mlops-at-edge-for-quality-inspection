@@ -7,13 +7,11 @@ import {
   aws_s3 as s3,
   Duration, Stack
 } from 'aws-cdk-lib';
-import { LinuxBuildImage } from "aws-cdk-lib/aws-codebuild";
+import { LinuxBuildImage, LocalCacheMode } from "aws-cdk-lib/aws-codebuild";
 import { CodeCommitTrigger } from "aws-cdk-lib/aws-codepipeline-actions";
 import { Construct } from 'constructs';
 import { TrainingPipelineAssets } from "../constructs/training-pipeline-assets";
 import { AppConfig } from "../../bin/app";
-
-
 
 export class TrainingSageMakerPipeline extends Stack {
 
@@ -25,9 +23,6 @@ export class TrainingSageMakerPipeline extends Stack {
     const sagemakerPipeline = new TrainingPipelineAssets(this, 'TrainingPipelineAssets');
 
     const runSageMakerPipelineCodeBuildProject = new codebuild.PipelineProject(this, 'TrainingProject', {
-      environment: {
-        buildImage: LinuxBuildImage.AMAZON_LINUX_2_3
-      },
       environmentVariables: {
         PIPELINE_ASSETS_PREFIX: { value: `s3://${props.assetsBucket}/${props.pipelineAssetsPrefix}` },
         PIPELINE_ROLE: { value: sagemakerPipeline.pipelineRole.value },
@@ -51,6 +46,11 @@ export class TrainingSageMakerPipeline extends Stack {
               'cd training/lib/assets/sagemaker_pipeline/; pip install -r requirements.txt;python3 construct_and_run_pipeline.py'
             ]
           }
+        },
+        environment: {
+          buildImage: LinuxBuildImage.AMAZON_LINUX_2_3,
+          localCache: LocalCacheMode.DOCKER_LAYER,
+          priviledged: true
         }
       })
     });

@@ -18,9 +18,7 @@ export class InferenceCdkPipeline extends cdk.Stack {
   constructor(scope: Construct, id: string, props: AppConfig) {
     super(scope, id, props);
 
-   
-
-    //pass in our artifacts bucket isntead of creating a new one
+    //pass in our artifacts bucket instead of creating a new one
     const infra_pipeline = new codepipeline.Pipeline(this, 'LabelingPipeline', {
                 pipelineName: 'MlOpsEdge-Inference-Infra-Pipeline',
                 artifactBucket: s3.Bucket.fromBucketName(this, "mlops-bucket", props.assetsBucket),

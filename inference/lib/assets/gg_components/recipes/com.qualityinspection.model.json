@@ -1,0 +1,38 @@
+{
+    "RecipeFormatVersion": "2020-01-25",
+    "ComponentName": "com.qualityinspection.model",
+    "ComponentVersion": "COMPONENT_VERSION",
+    "ComponentPublisher": "AWS",
+    "Manifests": [
+      {
+        "Platform": {
+          "os": "*",
+          "architecture": "*"
+        },
+        "Lifecycle": {
+          "Install": {
+            "Script": "tar xzf {artifacts:path}/model.tar.gz -C {artifacts:decompressedPath}",
+            "RequiresPrivilege": true
+          },
+          "Upgrade": {
+            "Script": "tar xzf {artifacts:path}/model.tar.gz -C {artifacts:decompressedPath}",
+            "RequiresPrivilege": true
+          },
+          "Uninstall": {
+            "Script": "rm -rf {artifacts:decompressedPath} {artifacts:path}",
+            "RequiresPrivilege": true
+          }
+        },
+        "Artifacts": [
+          {
+            "Uri": "ARTIFACT_URI",
+            "Permission": {
+              "Read": "OWNER",
+              "Execute": "NONE"
+            }
+          }
+        ]
+      }
+    ],
+    "Lifecycle": {}
+  }

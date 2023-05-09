@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64  public.ecr.aws/lts/ubuntu:18.04_stable
+FROM --platform=linux/amd64  public.ecr.aws/lts/ubuntu:20.04_stable
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
@@ -16,6 +16,5 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
   git \
   pkg-config
 RUN pip3 install --upgrade scikit-build pip
-RUN pip3 install pandas scikit-learn==0.21.3 boto3==1.19.4 sagemaker==2.66.1 mxnet==1.6.0 gluoncv
-COPY im2rec.py /opt/scripts/
+RUN pip3 install pandas scikit-learn boto3 sagemaker torch torchvision onnx ultralytics
 ENTRYPOINT ["python3"]

@@ -1,47 +1,25 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 from json import dumps
 from os import getenv, listdir
 
 import awsiot.greengrasscoreipc.client as client
 import config_utils
-import asyncio
-import logging
-import time
-
-from json import dumps
-from os import getenv
-from awscrt.io import (
-    ClientBootstrap,
-    DefaultHostResolver,
-    EventLoopGroup,
-    SocketDomain,
-    SocketOptions,
-)
-from awsiot.eventstreamrpc import Connection, LifecycleHandler, MessageAmendment
+from awscrt.io import (ClientBootstrap, DefaultHostResolver, EventLoopGroup,
+                       SocketDomain, SocketOptions)
+from awsiot.eventstreamrpc import (Connection, LifecycleHandler,
+                                   MessageAmendment)
 from awsiot.greengrasscoreipc.model import (
-    ConfigurationUpdateEvents,
-    GetConfigurationRequest,
-    PublishToIoTCoreRequest,
-    SubscribeToConfigurationUpdateRequest,
-)
-from stream_manager import (
-    ExportDefinition,
-    MessageStreamDefinition,
-    ReadMessagesOptions,
-    ResourceNotFoundException,
-    S3ExportTaskDefinition,
-    S3ExportTaskExecutorConfig,
-    Status,
-    StatusConfig,
-    StatusLevel,
-    StatusMessage,
-    StrategyOnFull,
-    StreamManagerClient,
-    StreamManagerException,
-)
+    ConfigurationUpdateEvents, GetConfigurationRequest,
+    PublishToIoTCoreRequest, SubscribeToConfigurationUpdateRequest)
+from stream_manager import (ExportDefinition, MessageStreamDefinition,
+                            ResourceNotFoundException, S3ExportTaskDefinition,
+                            S3ExportTaskExecutorConfig, StrategyOnFull,
+                            StreamManagerClient)
 from stream_manager.util import Util
+
 
 class IPCUtils:
     def connect(self):
@@ -50,8 +28,10 @@ class IPCUtils:
         bootstrap = ClientBootstrap(elg, resolver)
         socket_options = SocketOptions()
         socket_options.domain = SocketDomain.Local
-        amender = MessageAmendment.create_static_authtoken_amender(getenv("SVCUID"))
-        hostname = getenv("AWS_GG_NUCLEUS_DOMAIN_SOCKET_FILEPATH_FOR_COMPONENT")
+        amender = MessageAmendment.create_static_authtoken_amender(
+            getenv("SVCUID"))
+        hostname = getenv(
+            "AWS_GG_NUCLEUS_DOMAIN_SOCKET_FILEPATH_FOR_COMPONENT")
         connection = Connection(
             host_name=hostname,
             port=8033,
@@ -83,7 +63,8 @@ class IPCUtils:
             config_utils.logger.info("Publishing results to the IoT core...")
             operation.get_response().result(config_utils.TIMEOUT)
         except Exception as e:
-            config_utils.logger.info("Exception occured during publish: {}".format(e.message))
+            config_utils.logger.info(
+                "Exception occured during publish: {}".format(e.message))
 
     def upload_to_s3(self, local_image_path, s3_folder):
         try:
@@ -114,14 +95,16 @@ class IPCUtils:
             )
 
             file_url = "file://%s" % (local_image_path)
-            
+
             # Append a S3 Task definition and print the sequence number
-            s3_export_task_definition = S3ExportTaskDefinition(input_url=file_url, bucket=bucket_name, key="{}{}".format(s3_folder,local_image_path.split("/")[-1]))
+            s3_export_task_definition = S3ExportTaskDefinition(
+                input_url=file_url, bucket=bucket_name, key="{}{}".format(s3_folder, local_image_path.split("/")[-1]))
             config_utils.logger.info(
                 "Successfully appended S3 Task Definition to stream with sequence number %d",
-                client.append_message(stream_name, Util.validate_and_serialize_to_json_bytes(s3_export_task_definition)),
+                client.append_message(stream_name, Util.validate_and_serialize_to_json_bytes(
+                    s3_export_task_definition)),
             )
-            
+
         except asyncio.TimeoutError:
             config_utils.logger.exception("Timed out while executing")
         except Exception:
@@ -139,20 +122,14 @@ class IPCUtils:
         """
         try:
             get_config_request = GetConfigurationRequest()
-            get_edge_agent_config_request = GetConfigurationRequest(
-                component_name=config_utils.edge_agent_component_name
-            )
             operation = ipc_client.new_get_configuration()
-            edge_operation = ipc_client.new_get_configuration()
             operation.activate(get_config_request).result(config_utils.TIMEOUT)
-            edge_operation.activate(get_edge_agent_config_request).result(config_utils.TIMEOUT)
             result = operation.get_response().result(config_utils.TIMEOUT)
-            edge_result = edge_operation.get_response().result(config_utils.TIMEOUT)
-            result.value.update(edge_result.value)
             return result.value
         except Exception as e:
             config_utils.logger.error(
-                "Exception occured during fetching the configuration: {}".format(e.message)
+                "Exception occured during fetching the configuration: {}".format(
+                    e.message)
             )
             exit(1)
 
@@ -162,24 +139,19 @@ class IPCUtils:
         """
         try:
             config_subscribe_req = SubscribeToConfigurationUpdateRequest()
-            edge_agent_config_subscribe_req = SubscribeToConfigurationUpdateRequest(
-                component_name=config_utils.edge_agent_component_name
-            )
             subscribe_operation = ipc_client.new_subscribe_to_configuration_update(
                 ConfigUpdateHandler()
             )
             parent_subscribe_operation = ipc_client.new_subscribe_to_configuration_update(
                 ConfigUpdateHandler()
             )
-            subscribe_operation.activate(config_subscribe_req).result(config_utils.TIMEOUT)
-            parent_subscribe_operation.activate(edge_agent_config_subscribe_req).result(
-                config_utils.TIMEOUT
-            )
+            subscribe_operation.activate(
+                config_subscribe_req).result(config_utils.TIMEOUT)
             subscribe_operation.get_response().result(config_utils.TIMEOUT)
-            parent_subscribe_operation.get_response().result(config_utils.TIMEOUT)
         except Exception as e:
             config_utils.logger.error(
-                "Exception occured during fetching the configuration updates: {}".format(e.message)
+                "Exception occured during fetching the configuration updates: {}".format(
+                    e.message)
             )
             exit(1)
 
@@ -197,11 +169,13 @@ class ConfigUpdateHandler(client.SubscribeToConfigurationUpdateStreamHandler):
             config_utils.condition.notify()
 
     def on_stream_error(self, error: Exception) -> bool:
-        config_utils.logger.error("Error in config update subscriber - {0}".format(error))
+        config_utils.logger.error(
+            "Error in config update subscriber - {0}".format(error))
         return False
 
     def on_stream_closed(self) -> None:
-        config_utils.logger.info("Config update subscription stream was closed")
+        config_utils.logger.info(
+            "Config update subscription stream was closed")
 
 
 # Get the ipc client
@@ -210,6 +184,7 @@ try:
     config_utils.logger.info("Created IPC client...")
 except Exception as e:
     config_utils.logger.error(
-        "Exception occured during the creation of an IPC client: {}".format(e.message)
+        "Exception occured during the creation of an IPC client: {}".format(
+            e.message)
     )
     exit(1)

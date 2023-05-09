@@ -6,7 +6,6 @@ import { Construct } from 'constructs';
 import { AppConfig } from '../../bin/app';
 import { EdgeCiCdPipelineConstruct } from '../constructs/edge-cicd-pipeline';
 import { EdgeDeploymentOrchestrationConstruct } from "../constructs/edge-deployment-orchestration";
-import { EdgeManagerConstruct } from "../constructs/edge-manager";
 import { GgInferenceComponentBuildConstruct } from '../constructs/gg-inference-component-build';
 import { GgOnEc2Construct } from "../constructs/gg-on-ec2";
 
@@ -19,12 +18,6 @@ export class Inference extends Stack {
     
     // BASE INFRASTRUCTURE
     const ggConstruct = new GgOnEc2Construct(this, 'GreengrassOnEc2Construct', props);
-    const edgeManagerConstruct = new EdgeManagerConstruct(this, 'EdgeManagerConstruct', { ...props  ,
-      coreDeviceIamRole: ggConstruct.deviceRole.roleArn,
-      coreDeviceName: ggConstruct.iotThingName,
-    });
-
-    edgeManagerConstruct.node.addDependency(ggConstruct.deviceRole);
 
     // INFERENCE COMPONENT BUILD
     const ggInferenceComponentBuildConstruct = new GgInferenceComponentBuildConstruct(this, 'InferenceComponentBuildConstruct')

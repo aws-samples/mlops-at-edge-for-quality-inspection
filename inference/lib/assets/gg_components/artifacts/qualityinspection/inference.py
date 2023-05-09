@@ -7,20 +7,7 @@ from time import sleep
 import random
 import config_utils
 import IPCUtils as ipc_utils
-from agent_pb2_grpc import AgentStub
-from grpc import insecure_channel
-from prediction_utils import load_images, load_model, predict_from_image, unload_model
-
-try:
-    unload_model(config_utils.MODEL_NAME)
-except Exception as e:
-    config_utils.logger.error("Error unloading the model: {}".format(e))
-
-try:
-    load_model(config_utils.MODEL_NAME, config_utils.MODEL_DIR)
-except Exception as e:
-    config_utils.logger.error("Error loading the model: {}".format(e))
-
+from prediction_utils import load_images, predict_from_image
 
 def set_configuration(config):
     r"""
@@ -59,38 +46,6 @@ def set_configuration(config):
         config_utils.logger.info(
             "Topic to publish inference results is empty.")
 
-    if config_utils.edge_agent_socket_change:
-        config_utils.edge_agent_socket_change = False
-        if "UnixSocketName" in config:
-            while not path.exists(config["UnixSocketName"]):
-                config_utils.logger.info(
-                    "Configuration changed. Waiting for the edge agent to create the socket..."
-                )
-                sleep(1)
-            config_utils.agent_client = AgentStub(
-                insecure_channel(
-                    "unix://{}".format(config["UnixSocketName"]),
-                    options=(("grpc.enable_http_proxy", 0),),
-                )
-            )
-
-            try:
-                unload_model(config_utils.MODEL_NAME)
-            except Exception as e:
-                config_utils.logger.error(
-                    "Error unloading the model: {}".format(e))
-
-            try:
-                load_model(config_utils.MODEL_NAME, config_utils.MODEL_DIR)
-            except Exception as e:
-                config_utils.logger.error(
-                    "Error loading the model: {}".format(e))
-        else:
-            config_utils.logger.error(
-                "Unix socket name is not specified. Please specify it to use the edge manager agent."
-            )
-            exit(1)
-
     new_config["images"] = load_images(new_config["image_dir"])
 
     # Run inference with the updated config indicating the config change.
@@ -123,7 +78,6 @@ def run_inference(new_config, config_changed):
                 e)
         )
 
-    
     config_utils.logger.info(f'Scheduling inference with interval: {new_config["prediction_interval_secs"]}')
     config_utils.SCHEDULED_THREAD = Timer(
         int(new_config["prediction_interval_secs"]),

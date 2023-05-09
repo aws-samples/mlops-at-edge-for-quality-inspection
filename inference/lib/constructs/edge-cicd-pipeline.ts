@@ -17,10 +17,8 @@ export class EdgeCiCdPipelineConstruct extends Construct {
 
     constructor(scope: Construct, id: string, props: EdgeCiCdPipelineConstructProps) {
         super(scope, id);
-
-      
+ 
         const sourceOutput = new codepipeline.Artifact();
-
 
         const deployGreengrassComponentPipelineTrigger = new codepipeline_actions.CodeBuildAction({
             actionName: 'CodeBuild',
@@ -51,10 +49,9 @@ export class EdgeCiCdPipelineConstruct extends Construct {
             ],
         });
     
-        this.pipelineName = new CfnOutput(this, 'LabelingPipelineNameExport', {
+        this.pipelineName = new CfnOutput(this, 'EdgeCiCdPipelineNameExport', {
             value: pipeline.pipelineName
         });
-
     }
 
     getCodeSource(props: AppConfig, sourceOutput: codepipeline.Artifact) {

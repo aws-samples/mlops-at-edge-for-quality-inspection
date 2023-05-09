@@ -28,9 +28,6 @@ export class ExecuteStateMachinePipeline extends Stack {
         //deploy all assets required by the labeling pipeline
         const pipelineAssets = new PipelineAssets(this, 'LabelingPipelineAssets', props);
 
-
-
-
         const stateMachine = new sfn.StateMachine(this, 'Labeling', {
             definition: this.getStateMachineDefinition(pipelineAssets),
             stateMachineName: 'Quality-Inspection-Labeling'
