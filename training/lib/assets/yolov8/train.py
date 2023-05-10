@@ -25,7 +25,7 @@ if __name__ == '__main__':
     model = YOLO('yolov8n.pt')
     
     # Re-train the Ultralytics YOLOv8 model with the quality inspection dataset
-    model.train(data='qualityinspection.yaml', epochs=opt.epochs, imgsz=opt.img_size, batch=opt.batch_size)
+    model.train(data='qualityinspection.yaml', deterministic = False, epochs=opt.epochs, imgsz=opt.img_size, batch=opt.batch_size)
     metrics = model.val()
     print(f"map:{metrics.box.map}")
 
