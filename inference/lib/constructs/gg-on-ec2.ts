@@ -23,7 +23,7 @@ export class GgOnEc2Construct extends Construct {
         super(scope, id);
 
         const requirementProps = {
-            thingName: `EdgeThing-${Stack.of(this).stackName}`,
+            thingName: props.ggProps.iotThingName,
             thingIotPolicyName: props.ggProps.thingIotPolicyName,
             tokenExchangeRoleAlias: props.ggProps.tokenExchangeRoleAlias,
             allowAssumeTokenExchangeRolePolicyName: props.ggProps.allowAssumeTokenExchangeRolePolicyName
