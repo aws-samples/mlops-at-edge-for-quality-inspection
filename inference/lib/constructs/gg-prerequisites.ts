@@ -18,7 +18,7 @@ export class GgPrerequisitesConstruct extends Construct {
         super(scope, id);
 
         this.iotThing = new iot.CfnThing(this, 'thing-edge-inference', {
-            thingName: `EdgeThing-${Stack.of(this).stackName}`
+            thingName: props.ggProps.iotThingName
         });
 
         this.tokenExchangeRole = new iam.Role(this, 'token-exchange-iam-role', {

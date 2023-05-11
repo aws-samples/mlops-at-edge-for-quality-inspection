@@ -1,10 +1,13 @@
 #!/bin/bash -x
 
+source ./scripts/utils.sh
+eval $(parse_yaml config.yaml)
+
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 ARTIFACT_BUCKET_NAME=$(aws cloudformation describe-stacks --query 'Stacks[?StackName==`MLOps-Init-Stack`] | [0].Outputs[?OutputKey==`mlopsDataBucket`][OutputValue][] ' --output=text)
 export COMPONENT_VERSION=$(python3 $SCRIPT_DIR/../inference/lib/assets/gg_component_version_helper/setup.py com.qualityinspection)
 export MODEL_VERSION=$(python3 $SCRIPT_DIR/../inference/lib/assets/gg_component_version_helper/setup.py com.qualityinspection.model | awk 'BEGIN{FS=OFS="."} {$3-=1} 1')
-export TARGET_ARN=$(aws iot describe-thing --thing-name EdgeThing-MLOps-Inference-Statemachine-Pipeline-Stack  --output text --query 'thingArn')
+export TARGET_ARN=$(aws iot describe-thing --thing-name ${gg_iotThingName}  --output text --query 'thingArn')
 
 OUT_PATH=$SCRIPT_DIR/../inference/lib//cdk.out/greengrass_dev
 rm -rf ${OUT_PATH} && mkdir -p ${OUT_PATH}/artifacts ${OUT_PATH}/recipes

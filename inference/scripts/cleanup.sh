@@ -2,11 +2,14 @@
 
 echo "Cleaning up inference artifacts"
 
+source ./scripts/utils.sh
+eval $(parse_yaml config.yaml)
+
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 CERTIFICATE_ARN=$(aws iot list-targets-for-policy --policy-name BlogPostGGV2IoTThingPolicy | jq -r '.targets[0]')
 CERTIFICATE_ID=$(echo "$CERTIFICATE_ARN" | cut -f2 -d"/")
-THING_NAME="EdgeThing-MLOps-Inference-Statemachine-Pipeline-Stack"
-GG_CORE_DEVICE="EdgeThing-MLOps-Inference-Statemachine-Pipeline-Stack"
+THING_NAME=$gg_iotThingName
+GG_CORE_DEVICE=$gg_iotThingName
 
 aws iot update-certificate --certificate-id "$CERTIFICATE_ID" --new-status INACTIVE
 aws iot detach-thing-principal --thing-name ${THING_NAME} --principal "$CERTIFICATE_ARN"
