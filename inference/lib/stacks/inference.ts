@@ -17,7 +17,7 @@ export class Inference extends Stack {
     super(scope, id, props);
     
     // BASE INFRASTRUCTURE
-    // const ggConstruct = new GgOnEc2Construct(this, 'GreengrassOnEc2Construct', props);
+    const ggConstruct = new GgOnEc2Construct(this, 'GreengrassOnEc2Construct', props);
 
     // INFERENCE COMPONENT BUILD
     const ggInferenceComponentBuildConstruct = new GgInferenceComponentBuildConstruct(this, 'InferenceComponentBuildConstruct')
