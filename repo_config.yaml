@@ -2,12 +2,12 @@
 # "CODECOMMIT" - will create a new codecommit repo with name specified in repoName
 # "CODECOMMIT_PROVIDED" - will expect a codecommit repository in the account with name specified in repoName
 # "GITHUB" - will use an existing codestar connection for GitHub source, checkout README.MD, for instructions
-repoType: CODECOMMIT
+repoType: GITHUB
 # the repo where the pipeline should pull its source from
 repoName: mlops-at-edge-for-quality-inspection
 # the CodestarConnectionArn for your GitHub repository
-githubConnectionArn: <FILL_WITH_CONNECTION_ARN>
+githubConnectionArn: arn:aws:codestar-connections:eu-west-1:035725008843:connection/95507c2f-a5f6-4828-bda3-431b8282e3a6
 # the GitHub repo owner
-githubRepoOwner: awssamples
+githubRepoOwner: johanneslanger
 # the git branch to use
 branchName: main
