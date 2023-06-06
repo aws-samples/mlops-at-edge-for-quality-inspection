@@ -9,7 +9,7 @@
       }
     },
     "aws.greengrass.Cli": {
-      "componentVersion": "2.5.1"
+      "componentVersion": "2.9.6"
     },
     "com.qualityinspection.model": {
       "componentVersion": "${MODEL_VERSION}"

@@ -32,7 +32,7 @@ def transform_image(im):
     return im
 
 
-def predict_from_image(image, name):
+def predict_from_image(image, name,model):
     r"""
     Resize the image to the trained model input shape and predict using it.
 
@@ -52,7 +52,7 @@ def predict_from_image(image, name):
     img_data[0, 2, :] = img_data[0, 2, :]-mean[2]
     img_data[0, 2, :] = img_data[0, 2, :]/std[2]
     config_utils.logger.info(f"Predicting using tensors{img_data.shape}:")
-    predict(img_data, name)
+    predict(img_data, name,model)
 
 
 def load_images(image_dir):
@@ -80,15 +80,13 @@ def load_images(image_dir):
     return image_data
 
 
-def predict(image_data, image_name):
+def predict(image_data, image_name,onnx_model :YOLO):
     PAYLOAD = {}
     PAYLOAD["timestamp"] = str(datetime.now(tz=timezone.utc))
     PAYLOAD["image_name"] = image_name
     PAYLOAD["inference_results"] = []
     boxes = []
 
-    onnx_model = YOLO(
-        f"{config_utils.MODEL_COMP_PATH}/{config_utils.MODEL_NAME}", task='detect')
     im2 = cv2.imread(
         f"{config_utils.INFERENCE_COMP_PATH}/qualityinspection/sample_images/{image_name}")
     results = onnx_model.predict(source=im2, conf=config_utils.SCORE_THRESHOLD)
