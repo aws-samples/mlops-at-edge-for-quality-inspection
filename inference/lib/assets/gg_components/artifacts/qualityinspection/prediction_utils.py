@@ -43,14 +43,14 @@ def predict_from_image(image, name,model):
         image, (config_utils.SHAPE[1], config_utils.SHAPE[0]))
     img_data = cv2.dnn.blobFromImage(img_data,  crop=False)
 
-    mean = [123.68, 116.779, 103.939]
-    std = [58.393, 57.12, 57.375]
-    img_data[0, 0, :] = img_data[0, 0, :]-mean[0]
-    img_data[0, 0, :] = img_data[0, 0, :]/std[0]
-    img_data[0, 1, :] = img_data[0, 1, :]-mean[1]
-    img_data[0, 1, :] = img_data[0, 1, :]/std[1]
-    img_data[0, 2, :] = img_data[0, 2, :]-mean[2]
-    img_data[0, 2, :] = img_data[0, 2, :]/std[2]
+    #mean = [123.68, 116.779, 103.939]
+    #std = [58.393, 57.12, 57.375]
+    #img_data[0, 0, :] = img_data[0, 0, :]-mean[0]
+    #img_data[0, 0, :] = img_data[0, 0, :]/std[0]
+    #img_data[0, 1, :] = img_data[0, 1, :]-mean[1]
+    #img_data[0, 1, :] = img_data[0, 1, :]/std[1]
+    #img_data[0, 2, :] = img_data[0, 2, :]-mean[2]
+    #img_data[0, 2, :] = img_data[0, 2, :]/std[2]
     config_utils.logger.info(f"Predicting using tensors{img_data.shape}:")
     predict(img_data, name,model)
 
