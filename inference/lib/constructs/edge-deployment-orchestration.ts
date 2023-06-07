@@ -17,6 +17,8 @@ export interface EdgeDeploymentOrchestrationConstructProps extends AppConfig {
 }
 export class EdgeDeploymentOrchestrationConstruct extends Construct {
 
+  static readonly MODEL_PACKAGE_GROUP_NAME = 'TagQualityInspectionPackageGroup';
+
   readonly stepFunctionName: string;
   readonly stepFunctionArn: string;
   readonly stepFunctionAction: StepFunctionInvokeAction;
@@ -100,7 +102,7 @@ const asl = {
       "Type": "Task",
       "Next": "Does ModelPackage exist",
       "Parameters": {
-        "ModelPackageGroupName": "TagQualityInspectionPackageGroup",
+        "ModelPackageGroupName": EdgeDeploymentOrchestrationConstruct.MODEL_PACKAGE_GROUP_NAME,
         "SortBy": "CreationTime",
         "SortOrder": "Descending",
         "MaxResults": 1

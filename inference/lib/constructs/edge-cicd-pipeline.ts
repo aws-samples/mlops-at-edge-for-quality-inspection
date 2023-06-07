@@ -1,10 +1,11 @@
 import {
-    aws_codebuild as codebuild, aws_s3 as s3,aws_codecommit as codecommit, aws_codepipeline as codepipeline, aws_codepipeline_actions as codepipeline_actions, CfnOutput
+    aws_codebuild as codebuild, aws_s3 as s3,aws_codecommit as codecommit, aws_codepipeline as codepipeline, aws_codepipeline_actions as codepipeline_actions, aws_events as events, aws_events_targets as targets, CfnOutput
 } from 'aws-cdk-lib';
 import { StepFunctionInvokeAction } from "aws-cdk-lib/aws-codepipeline-actions";
 import {CodeCommitTrigger} from "aws-cdk-lib/aws-codepipeline-actions";
 import { Construct } from 'constructs';
 import { AppConfig } from '../../bin/app'
+import {EdgeDeploymentOrchestrationConstruct} from "./edge-deployment-orchestration";
 
 export interface EdgeCiCdPipelineConstructProps extends AppConfig{
     iotThingName: string,
@@ -17,7 +18,7 @@ export class EdgeCiCdPipelineConstruct extends Construct {
 
     constructor(scope: Construct, id: string, props: EdgeCiCdPipelineConstructProps) {
         super(scope, id);
- 
+
         const sourceOutput = new codepipeline.Artifact();
 
         const deployGreengrassComponentPipelineTrigger = new codepipeline_actions.CodeBuildAction({
@@ -48,10 +49,24 @@ export class EdgeCiCdPipelineConstruct extends Construct {
                 },
             ],
         });
-    
+
         this.pipelineName = new CfnOutput(this, 'EdgeCiCdPipelineNameExport', {
             value: pipeline.pipelineName
         });
+
+        const rule = new events.Rule(this, 'InferenceTriggerOnNewModel', {
+            eventPattern: {
+                detailType: ["SageMaker Model Package State Change"],
+                source: ["aws.sagemaker"],
+                detail: {
+                    "ModelPackageGroupName": [EdgeDeploymentOrchestrationConstruct.MODEL_PACKAGE_GROUP_NAME],
+                    "ModelApprovalStatus": ["Approved"],
+                }
+            }
+        });
+        rule.addTarget(new targets.CodePipeline(pipeline))
+
+
     }
 
     getCodeSource(props: AppConfig, sourceOutput: codepipeline.Artifact) {
