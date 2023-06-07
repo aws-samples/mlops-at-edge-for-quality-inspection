@@ -109,15 +109,14 @@ const asl = {
       },
       "Resource": "arn:aws:states:::aws-sdk:sagemaker:listModelPackages",
       "ResultSelector": {
-        "value.$": "$.ModelPackageSummaryList"
-      },
-      "ResultPath": "$.ModelPackageArn"
+        "ModelPackageSummaryList.$": "$.ModelPackageSummaryList"
+      }
     },
     "Does ModelPackage exist": {
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.stateInput.ModelPackageSummaryList[0].ModelPackageArn",
+          "Variable": "$.ModelPackageSummaryList[0]",
           "IsPresent": true,
           "Next": "Get SageMaker model URL"
         }
@@ -131,7 +130,7 @@ const asl = {
       "Type": "Task",
       "Next": "Get next Greengrass model component version",
       "Parameters": {
-        "ModelPackageName.$": "$.ModelPackageSummaryList[0].ModelPackageArn.value"
+        "ModelPackageName.$": "$.ModelPackageSummaryList[0].ModelPackageArn"
       },
       "Resource": "arn:aws:states:::aws-sdk:sagemaker:describeModelPackage",
       "ResultSelector": {
