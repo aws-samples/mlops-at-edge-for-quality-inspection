@@ -23,7 +23,7 @@ export class GgOnEc2Construct extends Construct {
         super(scope, id);
 
         const requirementProps = {
-            thingName: `EdgeThing-${Stack.of(this).stackName}`,
+            thingName: props.ggProps.iotThingName,
             thingIotPolicyName: props.ggProps.thingIotPolicyName,
             tokenExchangeRoleAlias: props.ggProps.tokenExchangeRoleAlias,
             allowAssumeTokenExchangeRolePolicyName: props.ggProps.allowAssumeTokenExchangeRolePolicyName
@@ -113,7 +113,7 @@ export class GgOnEc2Construct extends Construct {
             'java -Droot="/greengrass/v2" -Dlog.store=FILE ' +
             '  -jar ./GreengrassCore/lib/Greengrass.jar ' +
             `  --aws-region ${Stack.of(this).region} ` +
-            `  --thing-name ${ggPrerequisitesConstruct.iotThing.thingName} ` +
+            `  --thing-name ${props.ggProps.iotThingName} ` +
             `  --tes-role-name ${ggPrerequisitesConstruct.tokenExchangeRole.roleName}` +
             `  --tes-role-alias-name  ${props.ggProps.tokenExchangeRoleAlias}` +
             `  --thing-policy-name  ${props.ggProps.thingIotPolicyName}` +

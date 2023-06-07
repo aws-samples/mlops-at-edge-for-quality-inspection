@@ -24,11 +24,11 @@ export class Inference extends Stack {
     
     // EDGE DEPLOYMENT ORCHESTRATION
     const edgeDeploymentOrchestrationConstruct = new EdgeDeploymentOrchestrationConstruct(this, 'EdgeDeploymentOrchestrationConstruct', {...props,
-      iotThingName: ggConstruct.iotThingName});
+      iotThingName: props.ggProps.iotThingName});
 
     // EDGE CI/CD PIPELINE
     const cicdPipeline = new EdgeCiCdPipelineConstruct(this, 'EdgeCiCdPipelineConstruct',  {...props,
-      iotThingName: ggConstruct.iotThingName,
+      iotThingName: props.ggProps.iotThingName,
       ggInferenceComponentBuild: ggInferenceComponentBuildConstruct.ggInferenceComponentBuild,
       edgeDeploymentStepFunction: edgeDeploymentOrchestrationConstruct.stepFunctionAction
     });

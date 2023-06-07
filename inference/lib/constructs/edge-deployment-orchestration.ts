@@ -72,7 +72,7 @@ export class EdgeDeploymentOrchestrationConstruct extends Construct {
     asl.States['Get next Greengrass model component version'].Parameters.Payload.ComponentName = props.deploymentProps.ggModelComponentName;
     asl.States['Get inference component version'].Parameters.FunctionName = findLatestComponentVersionFunction.functionArn;
     asl.States['Get inference component version'].Parameters.Payload.ComponentName = props.deploymentProps.ggInferenceComponentName;
-    asl.States['Get IoT Thing ARN'].Parameters.ThingName = props.iotThingName;
+    asl.States['Get IoT Thing ARN'].Parameters.ThingName = props.ggProps.iotThingName;
 
     const packageModelWorkflow = new stepfunctions.CfnStateMachine(this, 'EdgeDeploymentOrchestrationStepFunction', {
       roleArn: stepFunctionRole.roleArn,
