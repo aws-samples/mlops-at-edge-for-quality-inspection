@@ -103,6 +103,7 @@ const asl = {
       "Next": "Does ModelPackage exist",
       "Parameters": {
         "ModelPackageGroupName": EdgeDeploymentOrchestrationConstruct.MODEL_PACKAGE_GROUP_NAME,
+        "ModelApprovalStatus": "Approved",
         "SortBy": "CreationTime",
         "SortOrder": "Descending",
         "MaxResults": 1
