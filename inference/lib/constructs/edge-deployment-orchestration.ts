@@ -98,7 +98,7 @@ const asl = {
   "States": {
     "Get SageMaker model package ARN": {
       "Type": "Task",
-      "Next": "Get SageMaker model URL",
+      "Next": "Does ModelPackage exist",
       "Parameters": {
         "ModelPackageGroupName": "TagQualityInspectionPackageGroup",
         "SortBy": "CreationTime",
@@ -107,15 +107,29 @@ const asl = {
       },
       "Resource": "arn:aws:states:::aws-sdk:sagemaker:listModelPackages",
       "ResultSelector": {
-        "value.$": "$.ModelPackageSummaryList[0].ModelPackageArn"
+        "value.$": "$.ModelPackageSummaryList"
       },
       "ResultPath": "$.ModelPackageArn"
+    },
+    "Does ModelPackage exist": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.stateInput.ModelPackageSummaryList[0].ModelPackageArn",
+          "IsPresent": true,
+          "Next": "Get SageMaker model URL"
+        }
+      ],
+      "Default": "No Model Exists"
+    },
+    "No Model Exists": {
+      "Type": "Succeed"
     },
     "Get SageMaker model URL": {
       "Type": "Task",
       "Next": "Get next Greengrass model component version",
       "Parameters": {
-        "ModelPackageName.$": "$.ModelPackageArn.value"
+        "ModelPackageName.$": "$.ModelPackageSummaryList[0].ModelPackageArn.value"
       },
       "Resource": "arn:aws:states:::aws-sdk:sagemaker:describeModelPackage",
       "ResultSelector": {
