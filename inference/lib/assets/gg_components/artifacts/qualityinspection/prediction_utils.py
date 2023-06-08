@@ -32,28 +32,6 @@ def transform_image(im):
     return im
 
 
-def predict_from_image(image, name):
-    r"""
-    Resize the image to the trained model input shape and predict using it.
-
-    :param image: numpy array of the image passed in for inference
-    """
-
-    img_data = cv2.resize(
-        image, (config_utils.SHAPE[1], config_utils.SHAPE[0]))
-    img_data = cv2.dnn.blobFromImage(img_data,  crop=False)
-
-    mean = [123.68, 116.779, 103.939]
-    std = [58.393, 57.12, 57.375]
-    img_data[0, 0, :] = img_data[0, 0, :]-mean[0]
-    img_data[0, 0, :] = img_data[0, 0, :]/std[0]
-    img_data[0, 1, :] = img_data[0, 1, :]-mean[1]
-    img_data[0, 1, :] = img_data[0, 1, :]/std[1]
-    img_data[0, 2, :] = img_data[0, 2, :]-mean[2]
-    img_data[0, 2, :] = img_data[0, 2, :]/std[2]
-    config_utils.logger.info(f"Predicting using tensors{img_data.shape}:")
-    predict(img_data, name)
-
 
 def load_images(image_dir):
     r"""
@@ -80,15 +58,15 @@ def load_images(image_dir):
     return image_data
 
 
-def predict(image_data, image_name):
+def predict(image_name,onnx_model :YOLO):
+    config_utils.logger.debug(f"Predicting image: {image_name}")
+
     PAYLOAD = {}
     PAYLOAD["timestamp"] = str(datetime.now(tz=timezone.utc))
     PAYLOAD["image_name"] = image_name
     PAYLOAD["inference_results"] = []
     boxes = []
 
-    onnx_model = YOLO(
-        f"{config_utils.MODEL_COMP_PATH}/{config_utils.MODEL_NAME}", task='detect')
     im2 = cv2.imread(
         f"{config_utils.INFERENCE_COMP_PATH}/qualityinspection/sample_images/{image_name}")
     results = onnx_model.predict(source=im2, conf=config_utils.SCORE_THRESHOLD)
@@ -104,10 +82,6 @@ def predict(image_data, image_name):
             config_utils.logger.warn(
                 "No topic set to publish the inference results to the cloud.")
 
-        # generate_bounding_box_image(path.join(config_utils.IMAGE_DIR, image_name), detections[2])
-        # save_image_for_labeling(path.join(config_utils.IMAGE_DIR, image_name))
-        # ipc_utils.IPCUtils().upload_to_s3(path.join(config_utils.UPLOAD_DIR_LABELING, image_name), config_utils.UPLOAD_BUCKET_LABELING_FOLDER)
-        # ipc_utils.IPCUtils().upload_to_s3(path.join(config_utils.UPLOAD_DIR_INFERENCE, image_name), config_utils.UPLOAD_BUCKET_INFERENCE_FOLDER)
     else:
         config_utils.logger.warn(
             "No detections higher than {}.".format(config_utils.SCORE_THRESHOLD))
