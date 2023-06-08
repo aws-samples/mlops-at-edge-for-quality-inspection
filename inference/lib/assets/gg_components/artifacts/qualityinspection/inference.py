@@ -7,7 +7,9 @@ from time import sleep
 import random
 import config_utils
 import IPCUtils as ipc_utils
-from prediction_utils import load_images, predict_from_image
+from prediction_utils import load_images, predict
+from ultralytics import YOLO
+
 
 def set_configuration(config):
     r"""
@@ -47,11 +49,14 @@ def set_configuration(config):
             "Topic to publish inference results is empty.")
 
     new_config["images"] = load_images(new_config["image_dir"])
+    model = YOLO(
+        f"{config_utils.MODEL_COMP_PATH}/{config_utils.MODEL_NAME}", task='detect')
+    
 
     # Run inference with the updated config indicating the config change.
-    run_inference(new_config, True)
+    run_inference(new_config, True,model)
 
-def run_inference(new_config, config_changed):
+def run_inference(new_config, config_changed,model:YOLO):
     r"""
     Uses the new config to run inference.
 
@@ -71,7 +76,7 @@ def run_inference(new_config, config_changed):
         image = random.choice(list(new_config["images"].keys()))
         config_utils.logger.info(
             f"NOW PREDICTING from image {path.join(new_config['image_dir'], image)}")
-        predict_from_image(new_config["images"][image], image)
+        predict( image, model)
     except Exception as e:
         config_utils.logger.exception(
             "Error running the inference: {}".format(
@@ -82,7 +87,7 @@ def run_inference(new_config, config_changed):
     config_utils.SCHEDULED_THREAD = Timer(
         int(new_config["prediction_interval_secs"]),
         run_inference,
-        [new_config, config_changed],
+        [new_config, config_changed,model],
     )
     config_utils.SCHEDULED_THREAD.start()
 
