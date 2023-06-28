@@ -3,6 +3,8 @@ import { aws_lambda as lambda, aws_logs as logs, aws_iam as iam, aws_s3 as s3, a
 import { CompositePrincipal, ManagedPolicy, PolicyDocument, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Architecture, DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
+import { Rule, EventPattern } from 'aws-cdk-lib/aws-events';
+import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
 import * as path from "path";
 import { AppConfig } from '../../bin/app';
@@ -12,12 +14,14 @@ export class LabelingInitStack extends Stack {
     readonly dataBucketOutput: CfnOutput;
     readonly modelPackageGroup: sagemaker.CfnModelPackageGroup;
     readonly featureGroup: sagemaker.CfnFeatureGroup;
+    readonly code_repo: codecommit.Repository;
 
     constructor(scope: Construct, id: string, props: AppConfig) {
         super(scope, id, props);
 
         if (props.repoType == "CODECOMMIT"){
-            this.seedCodeCommitRepo(props.repoName, props.branchName)
+            this.code_repo = this.seedCodeCommitRepo(props.repoName, props.branchName)
+            this.createLambdaInvokingPipeline(this.code_repo) 
         }
         this.dataBucket = this.createAssetsBucket()
         const seedAssetsRole = this.createSeedAssetsRole()
@@ -57,6 +61,7 @@ export class LabelingInitStack extends Stack {
             repositoryName: repoName,
             code: codecommit.Code.fromAsset(directoryAsset, branchName)
         })
+        return repo
     }
     createAssetsBucket() {
         // create default bucker where all assets are stored
@@ -237,5 +242,48 @@ export class LabelingInitStack extends Stack {
 
         cfnModelPackageGroup.applyRemovalPolicy(RemovalPolicy.DESTROY)
         return cfnModelPackageGroup
+    }
+    createLambdaInvokingPipeline(codeRepo: codecommit.Repository){
+        const lambdaRole = new Role(this, 'LambdaRole', {
+            assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
+          });
+      
+          // Add permissions to invoke CodePipeline
+          lambdaRole.addToPolicy(
+            new PolicyStatement({
+              actions: ['codepipeline:StartPipelineExecution', 'cloudwatch:*', 'logs:*', 'codecommit:*'],
+              resources: ['*'],
+            })
+          );
+          const lambdaFunction = new lambda_python.PythonFunction(this, 'RunCorrespondingPipelineLambda', {
+            entry: 'lib/lambda/invoke_corresponding_pipeline', // required
+            runtime: lambda.Runtime.PYTHON_3_8,
+            architecture: Architecture.X86_64,
+            timeout: Duration.seconds(300),
+            handler: 'lambda_handler',
+            role: lambdaRole,
+            environment: {
+              "REPOSITORY_NAME": codeRepo.repositoryName,
+              "TRAINING_PIPELINE_NAME": "MlOpsEdge-Training-Infra-Pipeline",
+              "LABELING_PIPELINE_NAME": "MlOpsEdge-Labeling-Infra-Pipeline",
+              "INFERENCE_PIPELINE_NAME": "MlOpsEdge-Inference-Infra-Pipeline",
+            }
+          });
+    
+        const eventPattern: EventPattern = {
+            source: ['aws.codecommit'],
+            resources: [codeRepo.repositoryArn],
+            detailType: ['CodeCommit Repository State Change'],
+            detail: {
+                event: ['referenceCreated', 'referenceUpdated'],
+                referenceName: ['main'], // Change to your desired branch name
+            },
+        };
+    
+        new Rule(this, 'CodeCommitEventRule', {
+            eventPattern,
+            targets: [new LambdaFunction(lambdaFunction)],
+        });
+
     }
 }
