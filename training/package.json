@@ -1,6 +1,6 @@
 {
-  "name": "cdk",
-  "version": "0.1.0",
+  "name": "mlops-at-edge-training",
+  "version": "0.0.0",
   "bin": {
     "cdk": "app.js"
   },
