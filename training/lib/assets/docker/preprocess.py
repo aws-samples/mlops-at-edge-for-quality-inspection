@@ -152,11 +152,10 @@ def create_yolov5_dataset(df, path):
                     fw.write(line)
 
 def create_tarball(path, filename):
-    tarball = tarfile.open(f"{path}/{filename}", "w:gz")
-    files = glob(path)
-    for file in files:
-        tarball.add(file, arcname=".")
-    tarball.close()
+    with tarfile.open(f"{path}/{filename}", "w:gz") as tarball:
+        files = glob(path)
+        for file in files:
+            tarball.add(file, arcname=".")
 
 def cleanup_directory(path):
     for file in glob(f"{path}/*.*"):
