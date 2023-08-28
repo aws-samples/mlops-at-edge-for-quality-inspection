@@ -4,6 +4,7 @@
 import shutil
 from datetime import datetime, timezone
 from os import listdir, path
+from typing import List
 
 import config_utils
 import cv2
@@ -58,26 +59,33 @@ def load_images(image_dir):
     return image_data
 
 
-def predict(image_name,onnx_model :YOLO):
+def predict(image_name: str, onnx_model: YOLO) -> None:
+    """
+    Predicts the boxes for the given image.
+
+    :param image_name: name of the image.
+    :param onnx_model: onnx model.
+    :return: None
+    """
     config_utils.logger.debug(f"Predicting image: {image_name}")
 
-    PAYLOAD = {}
-    PAYLOAD["timestamp"] = str(datetime.now(tz=timezone.utc))
-    PAYLOAD["image_name"] = image_name
-    PAYLOAD["inference_results"] = []
+    payload = {}
+    payload["timestamp"] = str(datetime.now(tz=timezone.utc))
+    payload["image_name"] = image_name
+    payload["inference_results"] = []
     boxes = []
 
     im2 = cv2.imread(
         f"{config_utils.INFERENCE_COMP_PATH}/qualityinspection/sample_images/{image_name}")
     results = onnx_model.predict(source=im2, conf=config_utils.SCORE_THRESHOLD)
-
     boxes = get_box_details(results)
-
-    if (len(boxes[0]) > 0):
-        PAYLOAD["inference_results"].append(boxes)
+    config_utils.logger.info(f"Boxes output for image: {image_name} are: {boxes}")
+    
+    if not is_list_empty(boxes):
+        payload["inference_results"] = boxes
 
         if config_utils.TOPIC.strip() != "":
-            ipc_utils.IPCUtils().publish_results_to_cloud(PAYLOAD)
+            ipc_utils.IPCUtils().publish_results_to_cloud(payload)
         else:
             config_utils.logger.warn(
                 "No topic set to publish the inference results to the cloud.")
@@ -85,9 +93,12 @@ def predict(image_name,onnx_model :YOLO):
     else:
         config_utils.logger.warn(
             "No detections higher than {}.".format(config_utils.SCORE_THRESHOLD))
+        # Upload images to S3 bucket for future labelling
+        save_image_for_labeling(path.join(config_utils.IMAGE_DIR, image_name))
+        ipc_utils.IPCUtils().upload_to_s3(path.join(config_utils.UPLOAD_DIR_LABELING, image_name), config_utils.UPLOAD_BUCKET_LABELING_FOLDER)
 
 
-def get_box_details(results):
+def get_box_details(results) -> List:
     box_details = [[], []]
     confidences = results[0].boxes.conf.tolist()
     coordinates = results[0].boxes.xywh.tolist()
@@ -96,14 +107,12 @@ def get_box_details(results):
     return box_details
 
 
-def save_image_for_labeling(image_path):
+def save_image_for_labeling(image_path: str) -> None:
     image_name = image_path.split("/")[-1]
-    config_utils.logger.info(
-        "Saving image {} for S3 upload and labeling".format(image_name))
-    shutil.copyfile(image_path, "{}{}".format(
-        config_utils.UPLOAD_DIR_LABELING, image_name))
-    config_utils.logger.info(
-        "Saved image {} for S3 upload and labeling".format(image_name))
+    config_utils.logger.info(f"Saving image {image_name} for S3 upload and labeling")
+    dest_file_path = f"{config_utils.UPLOAD_DIR_LABELING}/{image_name}"
+    shutil.copyfile(image_path, dest_file_path)
+    config_utils.logger.info(f"Saved image {image_name} for S3 upload and labeling in {dest_file_path}")
 
 
 def generate_bounding_box_image(image_path, detections):
@@ -117,3 +126,8 @@ def generate_bounding_box_image(image_path, detections):
     cv2.imwrite(config_utils.UPLOAD_BUCKET_INFERENCE_FOLDER +
                 image_name, image_data)
     config_utils.logger.info("Generated bounding box image %s", image_name)
+
+
+def is_list_empty(in_list: List) -> bool:
+    if isinstance(in_list, list): # Is a list
+        return all(map(is_list_empty, in_list))
