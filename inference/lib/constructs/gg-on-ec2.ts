@@ -34,7 +34,8 @@ export class GgOnEc2Construct extends Construct {
         this.iotThingName = ggPrerequisitesConstruct.iotThing.thingName ?? 'no-iot-thing-defined';
 
         const vpc = new ec2.Vpc(this, 'vpc', {
-            cidr: '10.0.0.0/16'
+            cidr: '10.0.0.0/16',
+            restrictDefaultSecurityGroup: true,
         });
 
         const instanceRole = new iam.Role(this, 'gg-instance-role', {
@@ -128,7 +129,7 @@ export class GgOnEc2Construct extends Construct {
 
 
             // Searched in marketplace for Canonical, Ubuntu, 20.04 LTS, amd64 focal image build on 2022-06-10
-            machineImage: ec2.MachineImage.genericLinux({ 
+            machineImage: ec2.MachineImage.genericLinux({
                 'us-west-1': 'ami-01154c8b2e9a14885',
                 'us-west-2': 'ami-0ddf424f81ddb0720',
                 'us-east-1': 'ami-08d4ac5b634553e16',

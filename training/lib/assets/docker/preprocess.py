@@ -70,7 +70,7 @@ def parse_args():
         required=False,
         help="Output directory of the test dataset which will be uploaded to S3"
     )
-    
+
     args = parser.parse_args()
     return args
 
@@ -85,7 +85,7 @@ def feature_group_exists(feature_group_name):
             return False
     return True
 
-def get_dataset(feature_group_name, query_results_s3uri):
+def _get_dataset(feature_group_name, query_results_s3uri):
     if not feature_group_exists(feature_group_name):
         return []
     feature_group = FeatureGroup(
@@ -120,7 +120,7 @@ def split_s3_url(s3_url):
 def create_yolov5_dataset(df, path):
     for i, (_, item) in enumerate(df.iterrows()):
         bucket, key, filename = split_s3_url(item['source_ref'])
-        with open(f"{path}/{filename}".replace(".jpg", ".txt"), 'w+') as fw:        
+        with open(f"{path}/{filename}".replace(".jpg", ".txt"), 'w+') as fw:
             if i % 100 == 0:
                 logging.info(f'Writing line {i} of {len(df)}')
             file = download_file(item['source_ref'], path)
@@ -128,8 +128,8 @@ def create_yolov5_dataset(df, path):
             annotations = json.loads(item['annotations'].replace("'", '"'))
             ids = np.array([annotation['class_id']
                            for annotation in annotations])
-            boxes = np.array([[annotation['left'], 
-                               annotation['top'], 
+            boxes = np.array([[annotation['left'],
+                               annotation['top'],
                                annotation['width'],
                                annotation['height']] for annotation in annotations])
             class_names = ['scratch']
@@ -141,7 +141,7 @@ def create_yolov5_dataset(df, path):
                     # transform to YOLOv5 structure
                     b_center_x = (2 * label[1] + label[3]) / 2
                     b_center_y = (2 * label[2] + label[4]) / 2
-                    b_width = label[3] 
+                    b_width = label[3]
                     b_height = label[4]
                     # normalized bboxes
                     b_center_x /= float(w)
@@ -150,14 +150,13 @@ def create_yolov5_dataset(df, path):
                     b_height /= float(h)
                     line = f"{int(label[0])} {b_center_x} {b_center_y} {b_width} {b_height}\n"
                     fw.write(line)
-    
+
 def create_tarball(path, filename):
-    tarball = tarfile.open(f"{path}/{filename}", "w:gz")
-    files = glob(path)
-    for file in files:
-        tarball.add(file, arcname=".")
-    tarball.close()         
-    
+    with tarfile.open(f"{path}/{filename}", "w:gz") as tarball:
+        files = glob(path)
+        for file in files:
+            tarball.add(file, arcname=".")
+
 def cleanup_directory(path):
     for file in glob(f"{path}/*.*"):
         if not file.endswith(".tar.gz"):
@@ -165,17 +164,17 @@ def cleanup_directory(path):
                 os.remove(file)
             except OSError as e:
                 print("Error: %s : %s" % (file, e.strerror))
-                   
+
 if __name__ == "__main__":
     args = parse_args()
-    
+
     os.makedirs(args.train_output_path, exist_ok=True)
     os.makedirs(args.validation_output_path, exist_ok=True)
     os.makedirs(args.test_output_path, exist_ok=True)
-    
+
     logging.info(f"Started data preprocessing with args {args}")
 
-    full_dataset = get_dataset(
+    full_dataset = _get_dataset(
         args.feature_group_name, args.query_results_s3uri)
 
     # do dataset splits
@@ -189,13 +188,13 @@ if __name__ == "__main__":
         Train set {len(train)} , 
         Validation set {len(validation)}, 
         Test set {len(test)}. """)
-    
+
     logging.info(test.iloc[0])
-    
+
     create_yolov5_dataset(train, args.train_output_path)
     create_yolov5_dataset(validation, args.validation_output_path)
     create_yolov5_dataset(test, args.test_output_path)
-    
+
     create_tarball(args.train_output_path, "train.tar.gz")
     create_tarball(args.validation_output_path, "validation.tar.gz")
     create_tarball(args.test_output_path, "test.tar.gz")
@@ -203,5 +202,5 @@ if __name__ == "__main__":
     cleanup_directory(args.train_output_path)
     cleanup_directory(args.validation_output_path)
     cleanup_directory(args.test_output_path)
-    
+
     logging.info("Finished data preprocessing")
