@@ -4,6 +4,15 @@ import tarfile
 import shutil
 from ultralytics import YOLO
 
+def check_tar_file_for_insecure_filenames(tar_file, target_dir):
+    for n in tar_file.getnames():
+        if not os.path.abspath(os.path.join(target_dir, n)).startswith(target_dir):
+            raise "Unsafe file name during tar file extraction"
+
+def check_and_extract_tar(tar_file, target_dir):
+    check_tar_file_for_insecure_filenames(tar_file, target_dir)
+    tar_file.extractall(target_dir)
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=300)
@@ -16,13 +25,15 @@ if __name__ == '__main__':
     parser.add_argument("--test", type=str, default=os.environ["SM_CHANNEL_TEST"])
     opt = parser.parse_args()
 
+
+
     # Unpack quality inspection dataset tarballs
     with tarfile.open(f"{opt.train}/train.tar.gz") as tar:
-        tar.extractall(opt.train)
+        check_and_extract_tar(tar_file=tar, target_dir=opt.train)
     with tarfile.open(f"{opt.validation}/validation.tar.gz") as tar:
-        tar.extractall(opt.validation)
+        check_and_extract_tar(tar_file=tar, target_dir=opt.validation)
     with tarfile.open(f"{opt.test}/test.tar.gz") as tar:
-        tar.extractall(opt.test)
+        check_and_extract_tar(tar_file=tar, target_dir=opt.test)
 
     # Load a pretrained Ultralytics YOLOv8 model
     model = YOLO('yolov8n.pt')
