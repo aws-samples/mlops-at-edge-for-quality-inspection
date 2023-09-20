@@ -60,7 +60,7 @@ export class GgOnEc2Construct extends Construct {
                 "iot:DescribeRoleAlias",
                 "iot:DescribeThingGroup",
                 "sts:GetCallerIdentity",
-                "iam:GetPolicy"
+                "iot:GetPolicy"
             ],
             "Resource": "*"
         }));
@@ -79,6 +79,8 @@ export class GgOnEc2Construct extends Construct {
                 `arn:aws:iam::${Aws.ACCOUNT_ID}:policy/${ggPrerequisitesConstruct.tokenExchangeRole.roleName}Access`,
             ]
         }));
+
+
 
         instanceRole.addToPolicy(iam.PolicyStatement.fromJson({
             "Sid": "DeployDevTools",
