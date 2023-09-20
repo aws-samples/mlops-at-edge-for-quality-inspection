@@ -46,7 +46,7 @@ export class PipelineAssets extends Construct {
 
     pipelineRole.addToPolicy(new iam.PolicyStatement({
       resources: ['*'],
-      actions: ['s3:*', 'sagemaker:*', 'sqs:*', 'cloudwatch:*', 'logs:*', 'stepfunctions:*', 'states:*', 'iam:PassRole'],
+      actions: ['s3:*', 'sagemaker:*', 'sqs:*', 'cloudwatch:*', 'logs:*', 'stepfunctions:*', 'states:*'],
     }));
 
     pipelineRole.addToPolicy(new iam.PolicyStatement({
