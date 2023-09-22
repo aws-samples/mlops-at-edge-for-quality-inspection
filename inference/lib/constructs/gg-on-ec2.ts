@@ -1,4 +1,4 @@
-import { aws_ec2 as ec2, aws_iam as iam, aws_s3 as s3, Stack } from 'aws-cdk-lib';
+import {Aws, aws_ec2 as ec2, aws_iam as iam, aws_s3 as s3, Stack} from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { AppConfig } from '../../bin/app'
 import { GgPrerequisitesConstruct } from "./gg-prerequisites";
@@ -59,17 +59,28 @@ export class GgOnEc2Construct extends Construct {
                 "iot:DescribeEndpoint",
                 "iot:DescribeRoleAlias",
                 "iot:DescribeThingGroup",
-                "iot:GetPolicy",
-                "iam:GetRole",
-                "iam:CreateRole",
-                "iam:PassRole",
-                "iam:CreatePolicy",
-                "iam:AttachRolePolicy",
-                "iam:GetPolicy",
-                "sts:GetCallerIdentity"
+                "sts:GetCallerIdentity",
+                "iot:GetPolicy"
             ],
             "Resource": "*"
         }));
+        instanceRole.addToPolicy(iam.PolicyStatement.fromJson({
+            "Effect": "Allow",
+            "Action": [
+                "iam:AttachRolePolicy",
+                "iam:CreatePolicy",
+                "iam:CreateRole",
+                "iam:GetPolicy",
+                "iam:GetRole",
+                "iam:PassRole",
+            ],
+            "Resource": [
+                `arn:aws:iam::${Aws.ACCOUNT_ID}:role/${ggPrerequisitesConstruct.tokenExchangeRole.roleName}`,
+                `arn:aws:iam::${Aws.ACCOUNT_ID}:policy/${ggPrerequisitesConstruct.tokenExchangeRole.roleName}Access`,
+            ]
+        }));
+
+
 
         instanceRole.addToPolicy(iam.PolicyStatement.fromJson({
             "Sid": "DeployDevTools",

@@ -3,7 +3,7 @@ import {
   aws_codecommit as codecommit,
   aws_codepipeline as codepipeline,
   aws_codepipeline_actions as codepipeline_actions,
-  aws_iam as iam, CfnOutput, 
+  aws_iam as iam, CfnOutput,
   aws_s3 as s3,
   Duration, Stack
 } from 'aws-cdk-lib';
@@ -56,9 +56,14 @@ export class TrainingSageMakerPipeline extends Stack {
     });
 
     runSageMakerPipelineCodeBuildProject.role?.addToPrincipalPolicy(new iam.PolicyStatement({
-      actions: ['sagemaker:*', 'iam:PassRole', 's3:*', 'codepipeline:StartPipelineExecution'],
+      actions: ['sagemaker:*', 's3:*', 'codepipeline:StartPipelineExecution'],
       resources: ['*'],
     }));
+
+      runSageMakerPipelineCodeBuildProject.role?.addToPrincipalPolicy(new iam.PolicyStatement({
+          actions: ['iam:PassRole'],
+          resources: [sagemakerPipeline.pipelineRole.value],
+      }));
 
     const sourceOutput = new codepipeline.Artifact();
 

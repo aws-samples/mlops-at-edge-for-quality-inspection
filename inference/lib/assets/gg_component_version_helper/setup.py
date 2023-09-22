@@ -4,11 +4,15 @@
 import boto3
 import logging
 import sys
+import re
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 greengrass_client = boto3.client('greengrassv2')
+
+# see https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+SEMVER_REGEXP = "^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
 
 def find_latest_version(component_name_to_search):
     components = []
@@ -20,6 +24,8 @@ def find_latest_version(component_name_to_search):
     return "0.0.0"
 
 def create_next_version(latest_version):
+    if not re.match(SEMVER_REGEXP, latest_version):
+        raise "Invalid version format for semver"
     semver_parts = latest_version.split(".")
     last_part = semver_parts[len(semver_parts)-1]
     next_version = int(last_part) + 1

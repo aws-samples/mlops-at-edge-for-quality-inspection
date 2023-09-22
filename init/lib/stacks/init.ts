@@ -61,7 +61,6 @@ export class LabelingInitStack extends Stack {
     createAssetsBucket() {
         // create default bucker where all assets are stored
         const dataBucket = new s3.Bucket(this, 'LabelingDataBucket', {
-            bucketName: "mlops-" + Stack.of(this).account,
             publicReadAccess: false,
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
             cors: [{
@@ -101,7 +100,7 @@ export class LabelingInitStack extends Stack {
                 `arn:aws:iam::${Stack.of(this).account}:role/cdk-hnb659fds-deploy-role-${Stack.of(this).account}-${Stack.of(this).region}`
               )]
         })
-        
+
         dataBucket.addToResourcePolicy(myBucketPolicy);
         dataBucket.addToResourcePolicy(cfnBucketPolicy);
         dataBucket.addToResourcePolicy(cdkBucketPolicy);

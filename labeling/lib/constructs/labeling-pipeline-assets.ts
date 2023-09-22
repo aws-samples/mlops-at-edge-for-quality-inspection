@@ -46,7 +46,7 @@ export class PipelineAssets extends Construct {
 
     pipelineRole.addToPolicy(new iam.PolicyStatement({
       resources: ['*'],
-      actions: ['s3:*', 'sagemaker:*', 'sqs:*', 'cloudwatch:*', 'logs:*', 'stepfunctions:*', 'states:*', 'iam:PassRole'],
+      actions: ['s3:*', 'sagemaker:*', 'sqs:*', 'cloudwatch:*', 'logs:*', 'stepfunctions:*', 'states:*'],
     }));
 
     pipelineRole.addToPolicy(new iam.PolicyStatement({
@@ -103,7 +103,7 @@ export class PipelineAssets extends Construct {
   createRunLabelingJobLambda(props: StateMachinePipelineProps, role: iam.Role) {
     return new lambda_python.PythonFunction(this, 'RunLabelingJobLambda', {
       entry: 'lib/lambda/run_labeling_job', // required
-      runtime: lambda.Runtime.PYTHON_3_8,
+      runtime: lambda.Runtime.PYTHON_3_11,
       architecture: Architecture.X86_64,
       timeout: Duration.seconds(300),
       role: role,
@@ -125,7 +125,7 @@ export class PipelineAssets extends Construct {
       return new lambda_python.PythonFunction(this, 'RunVerificationJobLambda', {
         entry: 'lib/lambda/run_verification_job', // required
         architecture: Architecture.X86_64,
-        runtime: lambda.Runtime.PYTHON_3_8,
+        runtime: lambda.Runtime.PYTHON_3_11,
         timeout: Duration.seconds(300),
         role: role,
         environment: {

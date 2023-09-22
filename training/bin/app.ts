@@ -44,7 +44,8 @@ function getConfig() {
 async function Main() {
 
   let appConfig: AppConfig = getConfig();
-  new TrainingPipeline(app, 'MLOps-Training-Infra-Stack', appConfig);
+  const pipeline = new TrainingPipeline(app, 'MLOps-Training-Infra-Stack', appConfig);
+  addSecurityChecks(app, [pipeline])
   app.synth();
 }
 
