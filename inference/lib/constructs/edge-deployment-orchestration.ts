@@ -59,7 +59,7 @@ export class EdgeDeploymentOrchestrationConstruct extends Construct {
     const findLatestComponentVersionFunction = new lambda_python.PythonFunction(this, 'LatestComponentVersion', {
       entry: path.join('lib', 'assets', 'gg_component_version_helper'),
       index: 'setup.py',
-      runtime: lambda.Runtime.PYTHON_3_8,
+      runtime: lambda.Runtime.PYTHON_3_11,
       logRetention: logs.RetentionDays.ONE_DAY,
       role: lambdaRole,
       timeout: Duration.seconds(15),
