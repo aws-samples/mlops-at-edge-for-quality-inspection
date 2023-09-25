@@ -62,7 +62,10 @@ export class TrainingSageMakerPipeline extends Stack {
 
       runSageMakerPipelineCodeBuildProject.role?.addToPrincipalPolicy(new iam.PolicyStatement({
           actions: ['s3:*', ],
-          resources: [`arn:aws:s3:::${props.assetsBucket}`, `arn:aws:s3:::${props.assetsBucket}/*`],
+          resources: [`arn:aws:s3:::${props.assetsBucket}`, `arn:aws:s3:::${props.assetsBucket}/*`,
+                        // the default bucket created by sagemaker
+                      `arn:aws:s3:::sagemaker-${this.region}-${this.account}`, `arn:aws:s3:::sagemaker-${this.region}-${this.account}/*`,
+          ]
       }));
 
       runSageMakerPipelineCodeBuildProject.role?.addToPrincipalPolicy(new iam.PolicyStatement({
