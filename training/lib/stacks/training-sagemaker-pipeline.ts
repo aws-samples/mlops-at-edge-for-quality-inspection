@@ -20,7 +20,7 @@ export class TrainingSageMakerPipeline extends Stack {
   constructor(scope: Construct, id: string, props: AppConfig) {
     super(scope, id);
 
-    const sagemakerPipeline = new TrainingPipelineAssets(this, 'TrainingPipelineAssets');
+    const sagemakerPipeline = new TrainingPipelineAssets(this, 'TrainingPipelineAssets', props);
 
     const runSageMakerPipelineCodeBuildProject = new codebuild.PipelineProject(this, 'TrainingProject', {
       environmentVariables: {
