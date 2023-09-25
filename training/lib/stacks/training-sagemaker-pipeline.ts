@@ -56,9 +56,14 @@ export class TrainingSageMakerPipeline extends Stack {
     });
 
     runSageMakerPipelineCodeBuildProject.role?.addToPrincipalPolicy(new iam.PolicyStatement({
-      actions: ['sagemaker:*', 's3:*', 'codepipeline:StartPipelineExecution'],
+      actions: ['sagemaker:*', 'codepipeline:StartPipelineExecution'],
       resources: ['*'],
     }));
+
+      runSageMakerPipelineCodeBuildProject.role?.addToPrincipalPolicy(new iam.PolicyStatement({
+          actions: ['s3:*', ],
+          resources: [`arn:aws:s3:::${props.assetsBucket}`, `arn:aws:s3:::${props.assetsBucket}/*`],
+      }));
 
       runSageMakerPipelineCodeBuildProject.role?.addToPrincipalPolicy(new iam.PolicyStatement({
           actions: ['iam:PassRole'],
