@@ -1,5 +1,20 @@
 import * as lambda_python from '@aws-cdk/aws-lambda-python-alpha';
-import { aws_lambda as lambda, aws_logs as logs, aws_iam as iam, aws_s3 as s3, aws_s3_assets as s3_assets, aws_codecommit as codecommit, aws_s3_deployment as s3deploy, aws_sagemaker as sagemaker, CfnOutput, CustomResource, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
+import {
+    aws_lambda as lambda,
+    aws_logs as logs,
+    aws_iam as iam,
+    aws_s3 as s3,
+    aws_s3_assets as s3_assets,
+    aws_codecommit as codecommit,
+    aws_s3_deployment as s3deploy,
+    aws_sagemaker as sagemaker,
+    CfnOutput,
+    CustomResource,
+    Duration,
+    RemovalPolicy,
+    Stack,
+    DefaultStackSynthesizer
+} from 'aws-cdk-lib';
 import { CompositePrincipal, ManagedPolicy, PolicyDocument, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Architecture, DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
@@ -121,18 +136,24 @@ export class LabelingInitStack extends Stack {
 
     createSeedAssetsRole() {
 
-        const bucketAccess = new PolicyDocument({
+        const policy = new PolicyDocument({
             statements: [
                 new PolicyStatement({
                     resources: [`arn:aws:s3:::${this.dataBucket.bucketName}/*`, `arn:aws:s3:::${this.dataBucket.bucketName}`],
                     actions: ['s3:*']
                 }),
                 new PolicyStatement({
-                    actions: ['sagemaker:PutRecord', 'sagemaker:CreateModelPackage'],
-                    resources: ['*']
+                    actions: ['sagemaker:PutRecord'],
+                    resources: [`arn:aws:sagemaker:${this.region}:${this.account}:feature-group/${this._featureGroupName}`]
                 }),
                 new PolicyStatement({
-                    actions: ['ecr:*'],
+                    actions: ['ecr:BatchGetImage',
+                        'ecr:GetDownloadUrlForLayer'
+                    ],
+                    resources: [DefaultStackSynthesizer.DEFAULT_IMAGE_ASSETS_REPOSITORY_NAME]
+                }),
+                new PolicyStatement({
+                    actions: ['ecr:GetAuthorizationToken'],
                     resources: ['*']
                 })
             ]
@@ -144,7 +165,7 @@ export class LabelingInitStack extends Stack {
                 new ServicePrincipal('lambda.amazonaws.com')
             ),
             inlinePolicies: {
-                bucketAccess: bucketAccess
+                lambdaPolicy: policy
             },
             managedPolicies: [
                 ManagedPolicy.fromAwsManagedPolicyName('AmazonSageMakerFeatureStoreAccess'),
@@ -152,6 +173,8 @@ export class LabelingInitStack extends Stack {
             ]
         })
     }
+
+    private readonly _featureGroupName = 'tag-quality-inspection';
 
     seed_labels_to_feature_store(role: Role, dataBucket: Bucket, bucketDeployment: s3deploy.BucketDeployment, props: AppConfig) {
 
@@ -196,7 +219,7 @@ export class LabelingInitStack extends Stack {
                 featureType: 'String',
             }
             ],
-            featureGroupName: 'tag-quality-inspection',
+            featureGroupName: this._featureGroupName,
             recordIdentifierFeatureName: 'source_ref',
             description: 'Stores bounding box dataset for quality inspection',
             offlineStoreConfig: offlineStoreConfig,
