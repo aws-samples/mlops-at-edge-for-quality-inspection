@@ -21,6 +21,7 @@ import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 import * as path from "path";
 import { AppConfig } from '../../bin/app';
+import {NagSuppressions} from "cdk-nag";
 export class LabelingInitStack extends Stack {
 
     readonly dataBucket: s3.Bucket;
@@ -86,8 +87,9 @@ export class LabelingInitStack extends Stack {
             removalPolicy: RemovalPolicy.DESTROY,
             autoDeleteObjects: true,
             encryption: s3.BucketEncryption.S3_MANAGED,
-            serverAccessLogsPrefix: 'access-logs'
         });
+
+        NagSuppressions.addResourceSuppressions( dataBucket, [{ id: 'AwsSolutions-S1', reason: 'Artifact Bucket does not need access logs enabled for sample'}])
 
         // Bucket policy to deny access to HTTP requests
         const myBucketPolicy = new iam.PolicyStatement({
