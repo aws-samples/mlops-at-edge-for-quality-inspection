@@ -152,7 +152,7 @@ export class LabelingInitStack extends Stack {
                     actions: ['ecr:BatchGetImage',
                         'ecr:GetDownloadUrlForLayer'
                     ],
-                    resources: [DefaultStackSynthesizer.DEFAULT_IMAGE_ASSETS_REPOSITORY_NAME]
+                    resources: [`arn:aws:ecr:${this.region}:${this.account}:repository/${DefaultStackSynthesizer.DEFAULT_IMAGE_ASSETS_REPOSITORY_NAME}`]
                 }),
                 new PolicyStatement({
                     actions: ['ecr:GetAuthorizationToken'],
