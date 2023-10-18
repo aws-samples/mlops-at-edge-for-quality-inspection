@@ -53,6 +53,8 @@ export class EdgeDeploymentOrchestrationConstruct extends Construct {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('AWSGreengrassReadOnlyAccess'),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMFullAccess'),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSageMakerFullAccess')
       ]
     });
 
@@ -67,7 +69,16 @@ export class EdgeDeploymentOrchestrationConstruct extends Construct {
         'SAGEMAKER_ROLE_ARN': stepFunctionRole.roleArn
       }
     });
+    const findModelBlobURL = new lambda_python.PythonFunction(this, 'ModelBlobURL', {
+      entry: path.join('lib', 'assets', 'model_version_helper'),
+      index: 'setup.py',
+      runtime: lambda.Runtime.PYTHON_3_11,
+      logRetention: logs.RetentionDays.ONE_DAY,
+      role: lambdaRole,
+      timeout: Duration.seconds(15),
+    });
 
+    asl.States['Get model blob url'].Parameters.FunctionName = findModelBlobURL.functionArn;
     asl.States['Get next Greengrass model component version'].Parameters.FunctionName = findLatestComponentVersionFunction.functionArn;
     asl.States['Get next Greengrass model component version'].Parameters.Payload.ComponentName = props.deploymentProps.ggModelComponentName;
     asl.States['Get inference component version'].Parameters.FunctionName = findLatestComponentVersionFunction.functionArn;
@@ -81,7 +92,9 @@ export class EdgeDeploymentOrchestrationConstruct extends Construct {
     });
 
     const stepFunctionInput = {
-      "ModelPackageGroupName": props.deploymentProps.smModelPackageGroupName
+      "ModelPackageGroupName": props.deploymentProps.smModelPackageGroupName,
+      "invokationSource": "CodeBuild",
+      "modelArn": ""
     }
 
     this.stepFunctionArn = `arn:aws:states:${Stack.of(this).region}:${Stack.of(this).account}:stateMachine:${this.stepFunctionName}`;
@@ -96,48 +109,33 @@ export class EdgeDeploymentOrchestrationConstruct extends Construct {
 
 // TODO:  Add native CDK definition
 const asl = {
-  "StartAt": "Get SageMaker model package ARN",
+  "StartAt": "Get model blob url",
   "States": {
-    "Get SageMaker model package ARN": {
-      "Type": "Task",
-      "Next": "Does ModelPackage exist",
-      "Parameters": {
-        "ModelPackageGroupName": EdgeDeploymentOrchestrationConstruct.MODEL_PACKAGE_GROUP_NAME,
-        "ModelApprovalStatus": "Approved",
-        "SortBy": "CreationTime",
-        "SortOrder": "Descending",
-        "MaxResults": 1
-      },
-      "Resource": "arn:aws:states:::aws-sdk:sagemaker:listModelPackages",
-      "ResultSelector": {
-        "ModelPackageSummaryList.$": "$.ModelPackageSummaryList"
-      }
-    },
-    "Does ModelPackage exist": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "$.ModelPackageSummaryList[0]",
-          "IsPresent": true,
-          "Next": "Get SageMaker model URL"
-        }
-      ],
-      "Default": "No Model Exists"
-    },
-    "No Model Exists": {
-      "Type": "Succeed"
-    },
-    "Get SageMaker model URL": {
+    "Get model blob url": {
       "Type": "Task",
       "Next": "Get next Greengrass model component version",
+      "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "ModelPackageName.$": "$.ModelPackageSummaryList[0].ModelPackageArn"
+        "FunctionName": "",
+        "Payload.$": "$"
       },
-      "Resource": "arn:aws:states:::aws-sdk:sagemaker:describeModelPackage",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
       "ResultSelector": {
-        "value.$": "$.InferenceSpecification.Containers[0].ModelDataUrl"
+        "value.$": "$.Payload.ModelUrl"
       },
-      "ResultPath": "$.ModelUrl"
+      "ResultPath": "$.ModelUrl",
     },
     "Get next Greengrass model component version": {
       "Type": "Task",
