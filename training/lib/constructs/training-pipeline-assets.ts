@@ -1,6 +1,7 @@
 import { aws_ecr_assets as ecr_assets, aws_iam as iam, CfnOutput, Stack } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as path from 'path';
+import {AppConfig} from "../../bin/app";
 
 export class TrainingPipelineAssets extends Construct {
 
@@ -8,7 +9,7 @@ export class TrainingPipelineAssets extends Construct {
   public readonly preprocessLambda: CfnOutput;
   public readonly preprocessImageURI: CfnOutput;
 
-  constructor(scope: Construct, id: string) {
+  constructor(scope: Construct, id: string, props: AppConfig) {
     super(scope, id);
 
     //build docker image for preprocessing container
@@ -25,7 +26,7 @@ export class TrainingPipelineAssets extends Construct {
     });
 
     //role to be assumed by SageMaker Pipeline
-    const pipelineRole = this.createSMPipeLineExecutionRole()
+    const pipelineRole = this.createSMPipeLineExecutionRole(props)
 
     // outputs
     this.pipelineRole = new CfnOutput(this, 'pipelineRole', {
@@ -35,14 +36,14 @@ export class TrainingPipelineAssets extends Construct {
     });
   }
 
-  createSMPipeLineExecutionRole() {
+  createSMPipeLineExecutionRole(props: AppConfig) {
     const pipelineRole = new iam.Role(this, 'SageMakerPipeLineRole', {
       assumedBy: new iam.ServicePrincipal('sagemaker.amazonaws.com'),
     });
 
     pipelineRole.addToPolicy(new iam.PolicyStatement({
       //TODO: Least privilege
-      resources: ['*'],
+      resources: [`arn:aws:s3:::${props.assetsBucket}`, `arn:aws:s3:::${props.assetsBucket}/*`],
       actions: ['s3:*'],
     }));
 

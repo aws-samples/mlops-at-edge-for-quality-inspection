@@ -23,7 +23,7 @@ export class PipelineAssets extends Construct {
     super(scope, id);
 
     // create execution role for stepfunction pipeline
-    const pipeline_role = this.createExecutionRole()
+    const pipeline_role = this.createExecutionRole(props)
     // create lambda which checks for missing labels
     this.check_missing_labels_lambda = this.createMissingLabelsLambda(props, pipeline_role)
     //create lambda function for SM Ground Truth verification job
@@ -34,7 +34,7 @@ export class PipelineAssets extends Construct {
     this.update_feature_store_lambda = this.updateFeatureStoreLambda(props, pipeline_role)
   }
 
-  createExecutionRole() {
+  createExecutionRole(props: StateMachinePipelineProps) {
     const pipelineRole = new iam.Role(this, 'StepFunctionsExecutionRole', {
       assumedBy: new iam.CompositePrincipal(
         new iam.ServicePrincipal('sagemaker.amazonaws.com'),
@@ -46,8 +46,15 @@ export class PipelineAssets extends Construct {
 
     pipelineRole.addToPolicy(new iam.PolicyStatement({
       resources: ['*'],
-      actions: ['s3:*', 'sagemaker:*', 'sqs:*', 'cloudwatch:*', 'logs:*', 'stepfunctions:*', 'states:*', 'iam:PassRole'],
+      actions: [ 'sagemaker:DescribeLabelingJob', 'cloudwatch:DescribeLogStreams', 'cloudwatch:CreateLogGroup', 'cloudwatch:CreateLogStream', 'logs:PutLogEvents', 'states:StartExecution'],
     }));
+
+    pipelineRole.addToPolicy(new iam.PolicyStatement({
+      resources: [`arn:aws:s3:::${props.assetsBucket}`, `arn:aws:s3:::${props.assetsBucket}/*`],
+      actions: ['s3:*'],
+    }));
+
+    pipelineRole.addManagedPolicy( iam.ManagedPolicy.fromManagedPolicyArn(this,'S3ReadOnlyPolicy', 'arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess'))
 
     pipelineRole.addToPolicy(new iam.PolicyStatement({
       resources: [`arn:aws:athena:${Stack.of(this).region}:${Stack.of(this).account}:workgroup/primary`],
@@ -103,7 +110,7 @@ export class PipelineAssets extends Construct {
   createRunLabelingJobLambda(props: StateMachinePipelineProps, role: iam.Role) {
     return new lambda_python.PythonFunction(this, 'RunLabelingJobLambda', {
       entry: 'lib/lambda/run_labeling_job', // required
-      runtime: lambda.Runtime.PYTHON_3_8,
+      runtime: lambda.Runtime.PYTHON_3_11,
       architecture: Architecture.X86_64,
       timeout: Duration.seconds(300),
       role: role,
@@ -125,7 +132,7 @@ export class PipelineAssets extends Construct {
       return new lambda_python.PythonFunction(this, 'RunVerificationJobLambda', {
         entry: 'lib/lambda/run_verification_job', // required
         architecture: Architecture.X86_64,
-        runtime: lambda.Runtime.PYTHON_3_8,
+        runtime: lambda.Runtime.PYTHON_3_11,
         timeout: Duration.seconds(300),
         role: role,
         environment: {

@@ -1,4 +1,4 @@
-import { aws_ec2 as ec2, aws_iam as iam, aws_s3 as s3, Stack } from 'aws-cdk-lib';
+import {Aws, aws_ec2 as ec2, aws_iam as iam, aws_s3 as s3, Stack} from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { AppConfig } from '../../bin/app'
 import { GgPrerequisitesConstruct } from "./gg-prerequisites";
@@ -34,7 +34,8 @@ export class GgOnEc2Construct extends Construct {
         this.iotThingName = ggPrerequisitesConstruct.iotThing.thingName ?? 'no-iot-thing-defined';
 
         const vpc = new ec2.Vpc(this, 'vpc', {
-            cidr: '10.0.0.0/16'
+            cidr: '10.0.0.0/16',
+            restrictDefaultSecurityGroup: true,
         });
 
         const instanceRole = new iam.Role(this, 'gg-instance-role', {
@@ -58,17 +59,28 @@ export class GgOnEc2Construct extends Construct {
                 "iot:DescribeEndpoint",
                 "iot:DescribeRoleAlias",
                 "iot:DescribeThingGroup",
-                "iot:GetPolicy",
-                "iam:GetRole",
-                "iam:CreateRole",
-                "iam:PassRole",
-                "iam:CreatePolicy",
-                "iam:AttachRolePolicy",
-                "iam:GetPolicy",
-                "sts:GetCallerIdentity"
+                "sts:GetCallerIdentity",
+                "iot:GetPolicy"
             ],
             "Resource": "*"
         }));
+        instanceRole.addToPolicy(iam.PolicyStatement.fromJson({
+            "Effect": "Allow",
+            "Action": [
+                "iam:AttachRolePolicy",
+                "iam:CreatePolicy",
+                "iam:CreateRole",
+                "iam:GetPolicy",
+                "iam:GetRole",
+                "iam:PassRole",
+            ],
+            "Resource": [
+                `arn:aws:iam::${Aws.ACCOUNT_ID}:role/${ggPrerequisitesConstruct.tokenExchangeRole.roleName}`,
+                `arn:aws:iam::${Aws.ACCOUNT_ID}:policy/${ggPrerequisitesConstruct.tokenExchangeRole.roleName}Access`,
+            ]
+        }));
+
+
 
         instanceRole.addToPolicy(iam.PolicyStatement.fromJson({
             "Sid": "DeployDevTools",
@@ -128,7 +140,7 @@ export class GgOnEc2Construct extends Construct {
 
 
             // Searched in marketplace for Canonical, Ubuntu, 20.04 LTS, amd64 focal image build on 2022-06-10
-            machineImage: ec2.MachineImage.genericLinux({ 
+            machineImage: ec2.MachineImage.genericLinux({
                 'us-west-1': 'ami-01154c8b2e9a14885',
                 'us-west-2': 'ami-0ddf424f81ddb0720',
                 'us-east-1': 'ami-08d4ac5b634553e16',

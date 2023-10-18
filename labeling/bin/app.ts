@@ -24,7 +24,7 @@ export interface AppConfig extends StackProps{
   readonly labelingPipelineSchedule: string;
   readonly featureGroupName: string;
   readonly assetsBucket: string;
-  
+
 }
 function getConfig() {
   let configYaml: any = load(fs.readFileSync(path.resolve("./config.yaml"), "utf8"));
@@ -52,22 +52,20 @@ async function Main() {
 
   let appConfig: AppConfig = getConfig();
   const labelingPipelineStack = new LabelingPipelineStack(app, 'MLOps-Labeling-Infra-Stack', appConfig)
-  addSecurityChecks(app,[labelingPipelineStack])   
+  addSecurityChecks(app,[labelingPipelineStack])
   app.synth();
 }
 
 
 function addSecurityChecks(app:App, stacks: Stack[]){
-  
-  for (var stack in stacks) {
-    NagSuppressions.addStackSuppressions(stacks[stack],[{id: "AwsSolutions-IAM4", reason: "Supressing disallowed use of managed policies for increased simplicity as this is a sample. Consider scoping down in production" }])
-    NagSuppressions.addStackSuppressions(stacks[stack],[{id: "AwsSolutions-IAM5", reason: "Supressing disallowed use of wildcards in IAM policies for increased simplicity as this is a sample. Consider scoping down in production" }])
-    NagSuppressions.addStackSuppressions(stacks[stack],[{id: "AwsSolutions-L1", reason: "Using fixed python version for lambda functions as sample needs to be stable" }])
-    NagSuppressions.addStackSuppressions(stacks[stack],[{id: "AwsSolutions-CB3", reason: "Supressing warning for use of privilileged mode for codebuild, as this is intended for docker image build" }])
-    NagSuppressions.addStackSuppressions(stacks[stack],[{id: "AwsSolutions-CB4", reason: "Supressing required use of KMS for CodeBuild as it incurs additional cost. Consider using KMS for Codebuild in production" }])
-  }
-  Aspects.of(app).add(new AwsSolutionsChecks({verbose:true}));
-
+    for (let stack in stacks) {
+        NagSuppressions.addStackSuppressions(stacks[stack],[{id: "AwsSolutions-IAM4", reason: "Suppress disallowed use of managed policies for increased simplicity as this is a sample. Scope down in production!" }])
+        NagSuppressions.addStackSuppressions(stacks[stack],[{id: "AwsSolutions-IAM5", reason: "Suppress disallowed use of wildcards in IAM policies for increased simplicity as this is a sample. Scope down in production!" }])
+        NagSuppressions.addStackSuppressions(stacks[stack],[{id: "AwsSolutions-L1", reason: "Using fixed python version for lambda functions as sample needs to be stable" }])
+        NagSuppressions.addStackSuppressions(stacks[stack],[{id: "AwsSolutions-CB3", reason: "Suppress warning for use of privileged mode for codebuild, as this is required for docker image build" }])
+        NagSuppressions.addStackSuppressions(stacks[stack],[{id: "AwsSolutions-CB4", reason: "Suppress required use of KMS for CodeBuild as it incurs additional cost. Consider using KMS for Codebuild in production" }])
+    }
+    Aspects.of(app).add(new AwsSolutionsChecks({verbose:true}));
 }
 
 

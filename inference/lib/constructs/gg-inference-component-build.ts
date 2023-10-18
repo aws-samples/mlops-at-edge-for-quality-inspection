@@ -36,8 +36,10 @@ export class GgInferenceComponentBuildConstruct extends Construct {
             })
         });
 
+
+
         ggInferenceComponentBuild.role?.addToPrincipalPolicy(new iam.PolicyStatement({
-            actions: ['iam:PassRole', 's3:*', 'greengrass:*', 'iot:DescribeThing', 'cloudformation:DescribeStacks'],
+            actions: ['s3:GetObject', 's3:PutObject', 'greengrass:ListComponents', 'greengrass:CreateComponentVersion', 'iot:DescribeThing', 'cloudformation:DescribeStacks'],
             resources: ['*'],
         }));
 

@@ -1,4 +1,4 @@
-pandas==1.4.2
-scikit-learn==1.1.1
-boto3==1.24.2
-sagemaker==2.93.0
+pandas==1.5.2
+scikit-learn==1.1.3
+boto3==1.28.52
+sagemaker==2.187.0

@@ -3,7 +3,7 @@ import {
   aws_codecommit as codecommit,
   aws_codepipeline as codepipeline,
   aws_codepipeline_actions as codepipeline_actions,
-  aws_iam as iam, CfnOutput, 
+  aws_iam as iam, CfnOutput,
   aws_s3 as s3,
   Duration, Stack
 } from 'aws-cdk-lib';
@@ -20,7 +20,7 @@ export class TrainingSageMakerPipeline extends Stack {
   constructor(scope: Construct, id: string, props: AppConfig) {
     super(scope, id);
 
-    const sagemakerPipeline = new TrainingPipelineAssets(this, 'TrainingPipelineAssets');
+    const sagemakerPipeline = new TrainingPipelineAssets(this, 'TrainingPipelineAssets', props);
 
     const runSageMakerPipelineCodeBuildProject = new codebuild.PipelineProject(this, 'TrainingProject', {
       environmentVariables: {
@@ -56,9 +56,22 @@ export class TrainingSageMakerPipeline extends Stack {
     });
 
     runSageMakerPipelineCodeBuildProject.role?.addToPrincipalPolicy(new iam.PolicyStatement({
-      actions: ['sagemaker:*', 'iam:PassRole', 's3:*', 'codepipeline:StartPipelineExecution'],
+      actions: ['sagemaker:*', 'codepipeline:StartPipelineExecution'],
       resources: ['*'],
     }));
+
+      runSageMakerPipelineCodeBuildProject.role?.addToPrincipalPolicy(new iam.PolicyStatement({
+          actions: ['s3:*', ],
+          resources: [`arn:aws:s3:::${props.assetsBucket}`, `arn:aws:s3:::${props.assetsBucket}/*`,
+                        // the default bucket created by sagemaker
+                      `arn:aws:s3:::sagemaker-${this.region}-${this.account}`, `arn:aws:s3:::sagemaker-${this.region}-${this.account}/*`,
+          ]
+      }));
+
+      runSageMakerPipelineCodeBuildProject.role?.addToPrincipalPolicy(new iam.PolicyStatement({
+          actions: ['iam:PassRole'],
+          resources: [sagemakerPipeline.pipelineRole.value],
+      }));
 
     const sourceOutput = new codepipeline.Artifact();
 
