@@ -159,6 +159,13 @@ Important: this application uses various AWS services and there are costs associ
 
 Run `make destroy` to cleanup all related resources in your account. 
 
+## Security
+This application was written for demonstration and educational purposes and not for production use. The [Security Pillar of the AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/security-pillar/welcome.html)
+can support you in further adopting the sample into a production deployment in addition to your own established processes. In particular, take note of the following:
+
+- AWS CodeBuild jobs use default encryption settings: https://docs.aws.amazon.com/codebuild/latest/userguide/security-encryption.html
+- AWS CodeBuild jobs may run in privileged mode: https://docs.aws.amazon.com/codebuild/latest/userguide/sample-docker.html
+- There are AWS managed policies and other policies in use that may contain wildcards. Please scope down the permissions as per your individual requirements.
 
 ## License
 
