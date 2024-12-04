@@ -4,6 +4,7 @@ import { ShellStep } from "aws-cdk-lib/pipelines";
 import { Construct } from "constructs";
 import { ExecuteStateMachinePipeline as StateMachinePipeline } from "./statemachine-pipeline";
 import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
+import { CodeCommitTrigger } from "aws-cdk-lib/aws-codepipeline-actions";
 import { AppConfig } from "../../bin/app";
 
 export class LabelingPipelineStack extends Stack {
@@ -68,7 +69,7 @@ export class LabelingPipelineStack extends Stack {
 
         if (props.repoType == "CODECOMMIT" || props.repoType == "CODECOMMIT_PROVIDED") {
             const repo = codecommit.Repository.fromRepositoryName(this, 'ImportedRepo', props.repoName);
-            return pipelines.CodePipelineSource.codeCommit(repo, props.branchName, {})
+            return pipelines.CodePipelineSource.codeCommit(repo, props.branchName, {trigger: CodeCommitTrigger.NONE})
         } else {
             return pipelines.CodePipelineSource.connection(`${props.githubRepoOwner}/${props.repoName}`, props.branchName, { connectionArn: props.githubConnectionArn })
         }

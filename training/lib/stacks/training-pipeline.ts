@@ -4,6 +4,7 @@ import { ShellStep } from "aws-cdk-lib/pipelines";
 import { CfnOutput, Stage } from "aws-cdk-lib";
 import { TrainingSageMakerPipeline} from "./training-sagemaker-pipeline";
 import { AppConfig } from "../../bin/app";
+import { CodeCommitTrigger } from "aws-cdk-lib/aws-codepipeline-actions";
 
 export class TrainingPipeline extends Stack {
 
@@ -60,7 +61,7 @@ export class TrainingPipeline extends Stack {
 
         if (props.repoType == "CODECOMMIT" || props.repoType == "CODECOMMIT_PROVIDED") {
             const repo = codecommit.Repository.fromRepositoryName(this, 'ImportedRepo', props.repoName);
-            return pipelines.CodePipelineSource.codeCommit(repo, props.branchName, {})
+            return pipelines.CodePipelineSource.codeCommit(repo, props.branchName, {trigger: CodeCommitTrigger.NONE})
         }else{
             return pipelines.CodePipelineSource.connection(`${props.githubRepoOwner}/${props.repoName}`,props.branchName,{connectionArn: props.githubConnectionArn})
         }
